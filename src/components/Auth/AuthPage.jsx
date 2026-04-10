@@ -134,7 +134,7 @@ export default function AuthPage() {
     <div className="auth-wrapper">
       <div className="auth-card">
         <div className="auth-header">
-          <div className="auth-logo-icon">🐄</div>
+          <img src="/logo.png" alt="Logo" style={{ width: 100, marginBottom: 16 }} />
           <div className="auth-brand-name">مزرعة الأمل</div>
           <div className="auth-brand-sub">نظام إدارة المزرعة المتكامل</div>
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from 'react'
+import { useState, useEffect, useRef, memo } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebaseConfig'
 import { useFarm } from '../../context/FarmContext'
@@ -73,6 +73,14 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [expandedSection, setExpandedSection] = useState(null)
+  const scrollAreaRef = useRef(null)
+
+  // Reset scroll to top when sidebar is opened
+  useEffect(() => {
+    if (isOpen && scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = 0
+    }
+  }, [isOpen])
 
   const name    = user?.displayName || user?.email?.split('@')[0] || 'مستخدم'
   const email   = user?.email || ''
@@ -113,9 +121,12 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
 
       <div className={`sidebar-v2${isOpen ? ' mobile-open' : ''}`}>
         
-        {/* Header with Title & Close Icon */}
+        {/* Header with Logo & Close Icon */}
         <div className="menu-v2-header">
-           <h2>القائمة</h2>
+           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+             <img src="/logo.png" alt="Logo" style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid var(--accent)' }} />
+             <h2 style={{ fontSize: 20 }}>مزرعة الأمل</h2>
+           </div>
            <button className="menu-v2-header-close" onClick={onClose} aria-label="إغلاق">
              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                <line x1="18" y1="6" x2="6" y2="18" />
@@ -124,7 +135,7 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
            </button>
         </div>
 
-        <div className="menu-v2-scroll-area">
+        <div className="menu-v2-scroll-area" ref={scrollAreaRef}>
           {/* 1. Profile Card */}
           <div className="menu-v2-card">
             <div className="menu-v2-profile">
@@ -209,7 +220,12 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
             </button>
           </div>
           
-          <div style={{ height: 40 }} />
+          <div className="sidebar-footer">
+            <div className="sidebar-version">رقم الاصدار 3.0.0</div>
+            <div className="sidebar-designer">تصميم طارق زوين</div>
+          </div>
+          
+          <div style={{ height: 20 }} />
         </div>
       </div>
 

@@ -349,10 +349,9 @@ a, button, input {
   flex: 1;
   display: flex;
   flex-direction: column;
-  will-change: opacity, transform;
-  contain: paint layout;
-  backface-visibility: hidden;
-  transform: translateZ(0);
+  /* Fixed: Removed translateZ(0) and will-change: transform
+     to allow child fixed-position modals to center relative to the VIEWPORT, 
+     not the tall page container. */
 }
 
 .page-enter {
@@ -2752,4 +2751,33 @@ input[type="date"] { direction: ltr; text-align: right; }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ──────────────────────────────────────────────────────────
+   SIDEBAR FOOTER & CREDITS (v3.0.0 Customization)
+   ────────────────────────────────────────────────────────── */
+.sidebar-footer {
+  margin: 32px 20px 20px;
+  padding: 12px 16px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(5px);
+}
+
+.sidebar-version {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 2px;
+  opacity: 0.9;
+}
+
+.sidebar-designer {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--subtext);
+  font-family: 'Cairo', sans-serif;
+  opacity: 0.8;
 }
