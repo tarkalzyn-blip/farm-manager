@@ -101,12 +101,17 @@ export default function NotificationCenter() {
                     justifyContent: 'center', fontSize: 16, flexShrink: 0
                   }}>{cfg.icon}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: n.read ? 500 : 700, color: 'var(--text)', lineHeight: 1.4 }}>{renderMsg(n.msg)}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ fontSize: 12, fontWeight: n.read ? 500 : 700, color: 'var(--text)', lineHeight: 1.4, flex: 1 }}>{renderMsg(n.msg)}</div>
+                      <div style={{ display: 'flex', gap: 4, marginRight: 8 }}>
+                         {!n.read && (
+                           <button className="notif-action-btn" onClick={() => markNotificationRead(n.id)} title="قراءة">✓</button>
+                         )}
+                         <button className="notif-action-btn delete" onClick={() => deleteNotification(n.id)} title="حذف">×</button>
+                      </div>
+                    </div>
                     <div style={{ fontSize: 10, color: 'var(--subtext)', marginTop: 3 }}>{timeAgo(n.time)}</div>
                   </div>
-                  {!n.read && (
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
-                  )}
                 </div>
               )
             })

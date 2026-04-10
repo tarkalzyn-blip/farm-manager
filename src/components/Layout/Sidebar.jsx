@@ -72,186 +72,160 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
   const { user, farmName, stats, showToast, setSearchOpen, notifOpen, setNotifOpen, notifications } = useFarm()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
-  const [openGroups, setOpenGroups] = useState(() => {
-    const saved = localStorage.getItem('sidebarGroups')
-    return saved ? JSON.parse(saved) : ['الرئيسية', 'إدارة الأبقار', 'الرعاية والإنتاج', 'الإدارة', 'التحليل']
-  })
+  const [expandedSection, setExpandedSection] = useState(null)
 
   const name    = user?.displayName || user?.email?.split('@')[0] || 'مستخدم'
   const email   = user?.email || ''
   const initial = name.charAt(0).toUpperCase()
-  const unreadNotifs = notifications.filter(n => !n.read).length
 
-  useEffect(() => {
-    localStorage.setItem('sidebarGroups', JSON.stringify(openGroups))
-  }, [openGroups])
-
-  useEffect(() => {
-    const handler = (e) => onNav(e.detail)
-    window.addEventListener('farm-nav', handler)
-    return () => window.removeEventListener('farm-nav', handler)
-  }, [onNav])
-
-  const toggleGroup = (label) => {
-    setOpenGroups(prev =>
-      prev.includes(label) ? prev.filter(g => g !== label) : [...prev, label]
-    )
-  }
+  // Flatten items for the grid
+  const gridItems = [
+    { page: 'dashboard', icon: 'dashboard', label: 'لوحة التحكم' },
+    { page: 'cows',     icon: 'cows',    label: 'الأبقار' },
+    { page: 'milk',     icon: 'milk',     label: 'الحليب' },
+    { page: 'health',   icon: 'health',   label: 'الصحة' },
+    { page: 'breeding', icon: 'breeding', label: 'التلقيح' },
+    { page: 'births',   icon: 'births',  label: 'الولادات' },
+    { page: 'finance',  icon: 'finance',  label: 'المالية' },
+    { page: 'workers',  icon: 'workers',  label: 'العمال' },
+    { page: 'feed',     icon: 'feed',     label: 'الأعلاف' },
+    { page: 'reports',  icon: 'reports',  label: 'التقارير' },
+  ]
 
   const doLogout = async () => {
     setLoggingOut(true)
     try {
       await signOut(auth)
     } catch (err) {
-      console.error('Logout error:', err)
-      showToast('حدث خطأ في تسجيل الخروج: ' + (err?.message || ''), 'error')
+      showToast('حدث خطأ: ' + (err?.message || ''), 'error')
       setLoggingOut(false)
-      setConfirmOpen(false)
     }
   }
 
-  const pendingAll = (stats.pendingAlerts?.length || 0) + (stats.soonBirths?.length || 0)
-  const badgeMap = {
-    dashboard: (stats.sickCows > 0 ? stats.sickCows : 0) + pendingAll > 0
-      ? ((stats.sickCows > 0 ? stats.sickCows : 0) + pendingAll) : null,
-    cows:     stats.sickCows > 0 ? stats.sickCows : null,
-    breeding: pendingAll > 0 ? pendingAll : null,
-    health:   stats.sickCows > 0 ? stats.sickCows : null,
+  const toggleSection = (sec) => {
+    setExpandedSection(prev => prev === sec ? null : sec)
   }
 
   return (
     <>
       {/* Mobile overlay */}
-      <div
-        className={`mobile-sidebar-overlay${isOpen ? ' open' : ''}`}
-        onClick={onClose}
-      />
+      <div className={`mobile-sidebar-overlay${isOpen ? ' open' : ''}`} onClick={onClose} />
 
-      <div className={`sidebar${isOpen ? ' mobile-open' : ''}`}>
-        {/* Mobile close button */}
-        <button className="sidebar-mobile-close" onClick={onClose} aria-label="إغلاق القائمة">✕</button>
-
-        {/* Logo Header */}
-        <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">🐄</div>
-          <div className="sidebar-logo-name">{farmName}</div>
-          <div className="sidebar-logo-sub">نظام إدارة ذكي</div>
+      <div className={`sidebar-v2${isOpen ? ' mobile-open' : ''}`}>
+        
+        {/* Header with Title & Close Icon */}
+        <div className="menu-v2-header">
+           <h2>القائمة</h2>
+           <button className="menu-v2-header-close" onClick={onClose} aria-label="إغلاق">
+             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+               <line x1="18" y1="6" x2="6" y2="18" />
+               <line x1="6" y1="6" x2="18" y2="18" />
+             </svg>
+           </button>
         </div>
 
-        {/* Quick Actions: Search + Bell */}
-        <div className="sidebar-quick-actions">
-          <button className="sidebar-quick-btn" onClick={() => setSearchOpen(true)} title="بحث سريع (Ctrl+K)">
-            <Icon d={ICONS.search} size={15} />
-            <span className="sidebar-quick-label">بحث</span>
-            <kbd style={{ fontSize: 9, opacity: 0.45, marginRight: 'auto', background: 'rgba(255,255,255,0.08)', padding: '1px 4px', borderRadius: 3 }}>K</kbd>
-          </button>
-          <button
-            className={`sidebar-quick-btn${notifOpen ? ' active' : ''}`}
-            onClick={() => setNotifOpen(o => !o)}
-            title="الإشعارات"
-            style={{ position: 'relative' }}
-          >
-            <Icon d={ICONS.bell} size={15} />
-            <span className="sidebar-quick-label">الإشعارات</span>
-            {unreadNotifs > 0 && (
-              <span className="nav-badge" style={{ position: 'absolute', top: 6, left: 8, margin: 0, fontSize: 9, padding: '1px 5px' }}>
-                {unreadNotifs > 99 ? '99+' : unreadNotifs}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="sidebar-nav">
-          {NAV_GROUPS.map(group => {
-            const isOpen = openGroups.includes(group.label)
-            // Check if any item in group is active
-            const hasActive = group.items.some(i => i.page === currentPage)
-            return (
-              <div key={group.label} className="nav-group">
-                {/* Group Header */}
-                <button
-                  className={`nav-group-header${hasActive ? ' has-active' : ''}`}
-                  onClick={() => toggleGroup(group.label)}
-                >
-                  <span className="nav-group-label">{group.label}</span>
-                  <span className={`nav-group-arrow${isOpen ? ' open' : ''}`}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </span>
-                </button>
-
-                {/* Group Items */}
-                {isOpen && (
-                  <div className="nav-group-items">
-                    {group.items.map(({ page, icon, label }) => (
-                      <button
-                        key={page}
-                        className={`nav-item${currentPage === page ? ' active' : ''}`}
-                        onClick={() => { onNav(page); onClose?.() }}
-                      >
-                        <span className="nav-icon">
-                          <Icon d={ICONS[icon]} size={17} strokeWidth={currentPage === page ? 2.5 : 2} />
-                        </span>
-                        <span>{label}</span>
-                        {badgeMap[page] && (
-                          <span className="nav-badge">{badgeMap[page]}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
+        <div className="menu-v2-scroll-area">
+          {/* 1. Profile Card */}
+          <div className="menu-v2-card">
+            <div className="menu-v2-profile">
+              <div className="menu-v2-avatar">{initial}</div>
+              <div className="menu-v2-info">
+                <div className="menu-v2-name">{name}</div>
+                <div className="menu-v2-email">{email}</div>
               </div>
-            )
-          })}
-
-          {/* Logout */}
-          <button
-            className="nav-item nav-item-logout"
-            onClick={() => setConfirmOpen(true)}
-            style={{ marginTop: 8 }}
-          >
-            <span className="nav-icon"><Icon d={ICONS.logout} size={17} /></span>
-            <span>تسجيل الخروج</span>
-          </button>
-        </nav>
-
-        {/* User chip */}
-        <div className="sidebar-user">
-          <div className="user-avatar">{initial}</div>
-          <div className="user-info">
-            <div className="user-name">{name}</div>
-            <div className="user-email">{email}</div>
+              <button className="menu-v2-switch-btn" onClick={() => showToast('🔔 تم تبديل وضع المزرعة')}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
+            <div className="menu-v2-divider" />
+            <button className="menu-v2-action-row" onClick={() => showToast('➕ خاصية إضافة ملف تعريف قريباً')}>
+               <div className="menu-v2-plus-circle">
+                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+               </div>
+               <span>إنشاء ملف مزرعة جديد</span>
+            </button>
           </div>
-          <button className="logout-btn" onClick={() => setConfirmOpen(true)} title="تسجيل الخروج">⏻</button>
-        </div>
 
-        <div className="sidebar-version">v2.1 | {farmName}</div>
+          {/* 2. Shortcuts Label */}
+          <div className="menu-v2-section-title">اختصاراتك</div>
+          <div className="menu-v2-shortcuts-row">
+            <div className="menu-v2-shortcut-item">
+              <div className="menu-v2-shortcut-avatar">🐄</div>
+              <span>مزرعتي</span>
+            </div>
+          </div>
+
+          {/* 3. Grid of Items */}
+          <div className="menu-v2-grid">
+            {gridItems.map((item) => (
+              <button 
+                key={item.page} 
+                className={`menu-v2-grid-item${currentPage === item.page ? ' active' : ''}`}
+                onClick={() => { onNav(item.page); onClose?.() }}
+              >
+                <div className="menu-v2-grid-icon">
+                  <Icon d={ICONS[item.icon]} size={24} />
+                </div>
+                <span className="menu-v2-grid-label">{item.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <button className="menu-v2-btn-secondary" style={{ marginTop: 12 }}>
+            عرض المزيد
+          </button>
+
+          <div className="menu-v2-divider" style={{ margin: '16px 0' }} />
+
+          {/* 4. Bottom Collapsible Sections */}
+          <div className="menu-v2-accordion">
+            <button className="menu-v2-accordion-header" onClick={() => toggleSection('help')}>
+               <div className="menu-v2-accordion-icon">❔</div>
+               <span className="menu-v2-accordion-label">المساعدة والدعم</span>
+               <svg className={`menu-v2-chevron ${expandedSection === 'help' ? 'open' : ''}`} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            {expandedSection === 'help' && (
+              <div className="menu-v2-accordion-content">
+                <div className="menu-v2-sub-item">مركز المساعدة</div>
+                <div className="menu-v2-sub-item">الإبلاغ عن مشكلة</div>
+              </div>
+            )}
+
+            <button className="menu-v2-accordion-header" onClick={() => toggleSection('settings')}>
+               <div className="menu-v2-accordion-icon">⚙️</div>
+               <span className="menu-v2-accordion-label">الإعدادات والخصوصية</span>
+               <svg className={`menu-v2-chevron ${expandedSection === 'settings' ? 'open' : ''}`} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            {expandedSection === 'settings' && (
+              <div className="menu-v2-accordion-content">
+                <button className="menu-v2-sub-item" onClick={() => { onNav('settings'); onClose?.() }}>الإعدادات</button>
+                <div className="menu-v2-sub-item">سجل النشاطات</div>
+              </div>
+            )}
+
+            <button className="menu-v2-accordion-header" onClick={() => setConfirmOpen(true)}>
+               <div className="menu-v2-accordion-icon">🚪</div>
+               <span className="menu-v2-accordion-label">تسجيل الخروج</span>
+            </button>
+          </div>
+          
+          <div style={{ height: 40 }} />
+        </div>
       </div>
 
       {/* Logout Confirm Modal */}
       {confirmOpen && (
-        <div className="modal-overlay open" style={{ zIndex: 10000 }}
-          onClick={e => { if (e.target === e.currentTarget) setConfirmOpen(false) }}>
-          <div className="modal" style={{ maxWidth: 380 }}>
-            <div className="modal-header">
-              <span className="modal-title">تسجيل الخروج</span>
-              <button className="modal-close" onClick={() => setConfirmOpen(false)}>✕</button>
-            </div>
-            <div className="modal-body" style={{ textAlign: 'center', padding: '32px 22px' }}>
-              <div style={{ fontSize: 52, marginBottom: 16 }}>👋</div>
-              <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>هل تريد تسجيل الخروج؟</div>
-              <div style={{ fontSize: 13, color: 'var(--subtext)' }}>
-                سيتم تسجيل خروجك من حساب <strong>{email}</strong>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setConfirmOpen(false)} disabled={loggingOut}>إلغاء</button>
-              <button className="btn btn-danger" onClick={doLogout} disabled={loggingOut}>
-                {loggingOut ? '⏳ جاري الخروج...' : '🚪 نعم، سجّل الخروج'}
-              </button>
-            </div>
+        <div className="modal-overlay open" style={{ zIndex: 10000 }} onClick={e => e.target === e.currentTarget && setConfirmOpen(false)}>
+          <div className="modal" style={{ maxWidth: 360 }}>
+             <div className="modal-body" style={{ textAlign: 'center', padding: '30px 20px' }}>
+                <div style={{ fontSize: 44, marginBottom: 12 }}>👋🏼</div>
+                <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 6 }}>هل تريد المغادرة؟</div>
+                <div style={{ fontSize: 13, color: 'var(--subtext)' }}>ستحتاج لتسجيل الدخول مرة أخرى للوصول إلى بيانات المزرعة.</div>
+             </div>
+             <div className="modal-footer" style={{ border: 'none', paddingTop: 0 }}>
+                <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setConfirmOpen(false)} disabled={loggingOut}>إلغاء</button>
+                <button className="btn btn-danger" style={{ flex: 1.5 }} onClick={doLogout} disabled={loggingOut}>خروج</button>
+             </div>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useFarm } from '../../context/FarmContext'
+import NotificationsTab from './NotificationsTab'
 import { auth } from '../../firebaseConfig'
 import {
   signOut, updateProfile, updatePassword,
@@ -36,6 +37,7 @@ export default function SettingsPage() {
     appTheme, setAppTheme, fontSize, setFontSize, darkMode, setDarkMode,
     compactMode, setCompactMode, dryPeriodDays, setDryPeriodDays,
     topTabs, updateTopTabs, ALL_PAGES, MAX_TOP_TABS,
+    isHeaderSwapped, setIsHeaderSwapped
   } = useFarm()
 
   const [activeTab, setActiveTab] = useState(null)
@@ -245,6 +247,8 @@ export default function SettingsPage() {
             ALL_PAGES={ALL_PAGES}
             MAX_TOP_TABS={MAX_TOP_TABS}
             showToast={showToast}
+            isHeaderSwapped={isHeaderSwapped}
+            setIsHeaderSwapped={setIsHeaderSwapped}
           />
         )}
 
@@ -730,248 +734,7 @@ function PasswordChangeModal({ onClose, showToast }) {
   )
 }
 
-/* ══════════════════════════════════════════════
-   NOTIFICATIONS TAB
-══════════════════════════════════════════════ */
-function NotificationsTab({ showToast }) {
-  const [permission, setPermission] = useState(Notification?.permission || 'default')
-  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('notifSoundEnabled') !== 'false')
-  const [soundVolume, setSoundVolume]   = useState(() => parseFloat(localStorage.getItem('notifSoundVolume') || '0.7'))
-  const [customSoundName, setCustomSoundName] = useState(() => localStorage.getItem('notifSoundName') || '')
-  const [customSoundUrl,  setCustomSoundUrl]  = useState(() => localStorage.getItem('notifSoundUrl') || '')
-  const [testPlaying, setTestPlaying] = useState(false)
-  const fileInputRef = useRef(null)
-  const audioRef     = useRef(null)
 
-  // Default built-in alert sound (base64 encoded short beep)
-  const DEFAULT_SOUND_URL = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA' +
-    'EAAQAARKwAAIhYAQACABAAZGF0YUoGAACBhYqFbF1fdJiVkHBgaIWGjpBtW1yFkpqXd2BjfoiJj' +
-    'pBzXF+DioyQkHRcYIOMjI+OcVxhgomMj41xWmF/iYuPjXBZYX+JjI+NcFphhImMj41wWWF/iQ=='
-
-  const getEffectiveSoundUrl = () => customSoundUrl || DEFAULT_SOUND_URL
-
-  const requestPermission = async () => {
-    if (!('Notification' in window)) {
-      showToast('⚠️ المتصفح لا يدعم الإشعارات', 'error'); return
-    }
-    const result = await Notification.requestPermission()
-    setPermission(result)
-    if (result === 'granted') showToast('✅ تم تفعيل الإشعارات بنجاح')
-    else showToast('❌ لم يتم منح صلاحية الإشعارات', 'error')
-  }
-
-  const handleSoundPick = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setCustomSoundUrl(url)
-    setCustomSoundName(file.name)
-    localStorage.setItem('notifSoundUrl', url)
-    localStorage.setItem('notifSoundName', file.name)
-    showToast(`✅ تم اختيار النغمة: ${file.name}`)
-  }
-
-  const resetToDefault = () => {
-    setCustomSoundUrl('')
-    setCustomSoundName('')
-    localStorage.removeItem('notifSoundUrl')
-    localStorage.removeItem('notifSoundName')
-    showToast('🔄 تم العودة للنغمة الافتراضية')
-  }
-
-  const playTest = () => {
-    if (testPlaying) return
-    setTestPlaying(true)
-
-    if (customSoundUrl) {
-      const audio = new Audio(customSoundUrl)
-      audio.volume = soundVolume
-      audioRef.current = audio
-      audio.play().catch(() => showToast('⚠️ تعذر تشغيل الصوت', 'error'))
-      audio.onended = () => setTestPlaying(false)
-      return
-    }
-
-    // نغمة مولّدة بـ Web Audio API
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)()
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(880, ctx.currentTime)
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15)
-      gain.gain.setValueAtTime(soundVolume * 0.4, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
-      osc.start(ctx.currentTime)
-      osc.stop(ctx.currentTime + 0.25)
-      osc.onended = () => { ctx.close(); setTestPlaying(false) }
-    } catch (e) {
-      showToast('⚠️ Web Audio غير مدعوم في هذا المتصفح', 'error')
-      setTestPlaying(false)
-    }
-  }
-
-  const saveSettings = () => {
-    localStorage.setItem('notifSoundEnabled', soundEnabled)
-    localStorage.setItem('notifSoundVolume', soundVolume)
-    showToast('✅ تم حفظ إعدادات الإشعارات')
-  }
-
-  const testDesktopNotif = () => {
-    if (permission !== 'granted') { showToast('⚠️ فعّل الإشعارات أولاً', 'error'); return }
-    const n = new Notification('🐄 مزرعتي الذكية', {
-      body: 'هذا إشعار تجريبي من التطبيق — النظام يعمل بشكل صحيح ✅',
-      icon: '/favicon.ico',
-    })
-    if (soundEnabled) {
-      const audio = new Audio(getEffectiveSoundUrl())
-      audio.volume = soundVolume
-      audio.play().catch(() => {})
-    }
-    setTimeout(() => n.close(), 4000)
-  }
-
-  const permissionInfo = {
-    granted: { icon: '✅', label: 'مفعّلة', color: 'var(--green)', bg: '#d5f5e3' },
-    denied:  { icon: '❌', label: 'محظورة - افتح إعدادات المتصفح', color: 'var(--red)', bg: '#fde8e8' },
-    default: { icon: '⏳', label: 'غير مُحددة - انقر للطلب', color: 'var(--orange)', bg: '#fde9d9' },
-  }[permission] || { icon: '❓', label: 'غير مدعوم', color: 'var(--subtext)', bg: 'var(--hbg)' }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-      {/* Permission Status */}
-      <div className="card">
-        <div className="card-header"><span className="card-title">🔔 إشعارات النظام</span></div>
-        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-            <div>
-              <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                صلاحية الإشعارات الخارجية
-              </div>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
-                background: permissionInfo.bg, color: permissionInfo.color,
-              }}>
-                {permissionInfo.icon} {permissionInfo.label}
-              </div>
-            </div>
-            {permission !== 'granted' && permission !== 'denied' && (
-              <button className="btn btn-primary btn-sm" onClick={requestPermission}>
-                🔔 طلب الصلاحية
-              </button>
-            )}
-            {permission === 'granted' && (
-              <button className="btn btn-outline btn-sm" onClick={testDesktopNotif}>
-                🧪 إشعار تجريبي
-              </button>
-            )}
-          </div>
-          {permission === 'denied' && (
-            <div className="info-box" style={{ fontSize: 12 }}>
-              ⚙️ لتفعيل الإشعارات: افتح إعدادات المتصفح ← الخصوصية والأمان ← الإشعارات ← ابحث عن هذا الموقع وغيّر الإعداد لـ "سماح"
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Sound Settings */}
-      <div className="card">
-        <div className="card-header"><span className="card-title">🔊 نغمة الإشعارات</span></div>
-        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Enable toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontWeight: 700 }}>تشغيل نغمة مع الإشعارات</div>
-              <div style={{ fontSize: 12, color: 'var(--subtext)', marginTop: 2 }}>تُشغَّل النغمة مع كل تنبيه جديد</div>
-            </div>
-            <div
-              className={`toggle-track${soundEnabled ? ' on' : ''}`}
-              onClick={() => { setSoundEnabled(v => !v) }}
-              style={{ flexShrink: 0, cursor: 'pointer' }}
-            />
-          </div>
-
-          {soundEnabled && (
-            <>
-              {/* Volume */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ fontWeight: 700, fontSize: 13 }}>🔉 مستوى الصوت</label>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent)' }}>{Math.round(soundVolume * 100)}%</span>
-                </div>
-                <input
-                  type="range" min="0.1" max="1" step="0.05" value={soundVolume}
-                  onChange={e => setSoundVolume(parseFloat(e.target.value))}
-                  style={{ accentColor: 'var(--accent)', height: 6 }}
-                />
-              </div>
-
-              {/* Current sound info */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 14px', borderRadius: 10,
-                background: 'var(--hbg)', border: '1px solid var(--border)',
-              }}>
-                <span style={{ fontSize: 22 }}>🎵</span>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>
-                    {customSoundName || 'النغمة الافتراضية (built-in)'}
-                  </div>
-                  {customSoundName && (
-                    <div style={{ fontSize: 11, color: 'var(--subtext)', marginTop: 1 }}>نغمة مخصصة</div>
-                  )}
-                </div>
-                <button
-                  className={`btn btn-outline btn-sm${testPlaying ? ' btn-ghost' : ''}`}
-                  onClick={playTest}
-                  disabled={testPlaying}
-                >
-                  {testPlaying ? '▶️ يعزف...' : '▶ معاينة'}
-                </button>
-              </div>
-
-              {/* Sound picker */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-outline btn-sm"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  📁 اختر نغمة من الجهاز
-                </button>
-                {customSoundName && (
-                  <button className="btn btn-ghost btn-sm" onClick={resetToDefault}>
-                    🔄 العودة للافتراضية
-                  </button>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="audio/*"
-                  style={{ display: 'none' }}
-                  onChange={handleSoundPick}
-                />
-              </div>
-
-              <div className="info-box" style={{ fontSize: 12 }}>
-                💡 تدعم الصيغ: <strong>mp3, wav, ogg, m4r, m4a</strong> — يمكنك اختيار أي نغمة من هاتفك أو الكمبيوتر
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Save */}
-      <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }} onClick={saveSettings}>
-        💾 حفظ إعدادات الإشعارات
-      </button>
-    </div>
-  )
-}
 
 /* \u2500\u2500\u2500 Shared Mini Components \u2500\u2500\u2500 */
 function ToggleRow({ icon, label, desc, value, onChange }) {
@@ -1052,7 +815,7 @@ function MiniTabIcon({ page }) {
   )
 }
 
-function NavbarCustomizerTab({ topTabs, updateTopTabs, ALL_PAGES, MAX_TOP_TABS, showToast }) {
+function NavbarCustomizerTab({ topTabs, updateTopTabs, ALL_PAGES, MAX_TOP_TABS, showToast, isHeaderSwapped, setIsHeaderSwapped }) {
   // Local copy for editing
   const [localTabs, setLocalTabs] = useState([...topTabs])
 
@@ -1098,9 +861,10 @@ function NavbarCustomizerTab({ topTabs, updateTopTabs, ALL_PAGES, MAX_TOP_TABS, 
   }
 
   const handleReset = () => {
-    const def = ['dashboard', 'cows', 'breeding', 'births']
+    const def = ['dashboard', 'cows', 'breeding', 'births', 'milk']
     setLocalTabs(def)
     updateTopTabs(def)
+    setIsHeaderSwapped(false)
     showToast('🔄 تم استعادة الترتيب الافتراضي')
   }
 
@@ -1110,47 +874,63 @@ function NavbarCustomizerTab({ topTabs, updateTopTabs, ALL_PAGES, MAX_TOP_TABS, 
       {/* Preview Bar */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title">👁️ معاينة الشريط</span>
-          <span style={{ fontSize: 12, color: 'var(--subtext)' }}>{localTabs.length}/{MAX_TOP_TABS} + القائمة</span>
+          <span className="card-title">👁️ معاينة الشريط (صفين)</span>
+          <span style={{ fontSize: 12, color: 'var(--subtext)' }}>{localTabs.length}/{MAX_TOP_TABS}</span>
         </div>
         <div className="card-body">
           <div style={{
-            display: 'flex', border: '1.5px solid var(--border)', borderRadius: 14,
-            overflow: 'hidden', background: 'var(--hbg)', direction: 'rtl', height: 58,
+            display: 'flex', flexDirection: 'column', border: '1.5px solid var(--border)', borderRadius: 14,
+            overflow: 'hidden', background: 'var(--card)', direction: 'rtl',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
           }}>
-            {localTabs.map((page) => {
-              const info = ALL_PAGES.find(p => p.page === page)
-              if (!info) return null
-              return (
-                <div key={page} style={{
-                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  justifyContent: 'center', gap: 3, padding: '4px 2px',
-                  color: 'var(--accent)', borderBottom: '3px solid var(--accent)',
-                  fontSize: 9.5, fontWeight: 700,
-                }}>
-                  <MiniTabIcon page={page} />
-                  <span>{info.label}</span>
-                </div>
-              )
-            })}
-            {/* Hamburger always last */}
+            {/* Row 1 Preview */}
             <div style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', gap: 3, padding: '4px 2px',
-              color: 'var(--subtext)', borderRight: '1.5px solid var(--border)',
-              fontSize: 9.5, fontWeight: 600,
+               display: 'flex', alignItems: 'center', height: 42, padding: '0 12px',
+               borderBottom: '1px solid var(--border)', background: 'var(--hbg)',
+               flexDirection: isHeaderSwapped ? 'row' : 'row-reverse'
             }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-              <span>القائمة</span>
+               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+               </div>
+               <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 900, color: 'var(--text)' }}>⚙️ الإعدادات</div>
+               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+               </div>
+            </div>
+
+            {/* Row 2 Preview */}
+            <div style={{ display: 'flex', height: 44 }}>
+              {localTabs.map((page) => {
+                const info = ALL_PAGES.find(p => p.page === page)
+                if (!info) return null
+                return (
+                  <div key={page} style={{
+                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', color: 'var(--accent)', borderBottom: '3px solid var(--accent)',
+                  }}>
+                    <MiniTabIcon page={page} />
+                  </div>
+                )
+              })}
             </div>
           </div>
           <div style={{ fontSize: 11, color: 'var(--subtext)', marginTop: 8, textAlign: 'center' }}>
-            🔒 زر القائمة ثابت دائماً في أقصى اليمين
+            💡 الصف العلوي يحتوي الأزرار والوسط، والصف الثاني يحتوي الأيقونات الـ 5 المخصصة
           </div>
+        </div>
+      </div>
+
+      {/* Action Buttons Layout */}
+      <div className="card">
+        <div className="card-header"><span className="card-title">⚙️ تخصيص الأزرار العلوية</span></div>
+        <div className="card-body">
+           <ToggleRow
+             icon="🔄"
+             label="تبديل أماكن الأزرار"
+             desc="تغيير مكان زر البحث وزر القائمة الجانبية"
+             value={isHeaderSwapped}
+             onChange={() => setIsHeaderSwapped(!isHeaderSwapped)}
+           />
         </div>
       </div>
 

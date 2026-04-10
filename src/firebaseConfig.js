@@ -1,8 +1,9 @@
-// ── Firebase Configuration ──
-// مزرعة الأمل — Firebase Project: tarikmanger
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
+import { 
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager 
+} from 'firebase/firestore'
+import { getMessaging } from 'firebase/messaging'
 const firebaseConfig = {
   apiKey:            "AIzaSyBCu8-z7-JZe9Z3BpJMAJ562OZBSa11W0w",
   authDomain:        "tarikmanger.firebaseapp.com",
@@ -18,4 +19,5 @@ export const auth = getAuth(app)
 export const db   = initializeFirestore(app, {
   localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
 })
+export const messaging = typeof window !== 'undefined' ? getMessaging(app) : null
 export default app

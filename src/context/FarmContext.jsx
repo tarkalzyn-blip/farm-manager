@@ -21,6 +21,7 @@ export function FarmProvider({ children }) {
   const [fontSize,    setFontSize]    = useState(parseInt(localStorage.getItem('fontSize'))    || 100)
   const [darkMode,    setDarkMode]    = useState(localStorage.getItem('darkMode')    === 'true')
   const [compactMode, setCompactMode] = useState(localStorage.getItem('compactMode') === 'true')
+  const [isHeaderSwapped, setIsHeaderSwapped] = useState(localStorage.getItem('isHeaderSwapped') === 'true')
 
   // ── Top Navigation Bar (Customizable Tabs) ──
   const ALL_PAGES = [
@@ -37,8 +38,8 @@ export function FarmProvider({ children }) {
     { page: 'settings',  label: 'الإعدادات',   emoji: '⚙️' },
   ]
 
-  const DEFAULT_TOP_TABS = ['dashboard', 'cows', 'breeding', 'births']
-  const MAX_TOP_TABS = 4 // + hamburger = 5 total
+  const DEFAULT_TOP_TABS = ['dashboard', 'cows', 'breeding', 'births', 'milk']
+  const MAX_TOP_TABS = 5
 
   const [topTabs, setTopTabs] = useState(() => {
     try {
@@ -75,11 +76,24 @@ export function FarmProvider({ children }) {
   const [notifications, setNotifications] = useState(() => {
     try { return JSON.parse(localStorage.getItem('farmNotifs') || '[]') } catch { return [] }
   })
+  const unreadCount = notifications.filter(n => !n.read).length
   const [notifOpen, setNotifOpen]   = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
 
   // ── Network State ──
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+
+  // ── Notification Settings & Tokens ──
+  const [notifSettings, setNotifSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('farmNotifSettings')
+      return saved ? JSON.parse(saved) : { enabled: true, vaccines: true, births: true, finance: true }
+    } catch {
+      return { enabled: true, vaccines: true, births: true, finance: true }
+    }
+  })
+  const [pushToken, setPushToken] = useState(null)
+  const [inAppBanner, setInAppBanner] = useState(null)
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
@@ -92,11 +106,89 @@ export function FarmProvider({ children }) {
     }
   }, [])
 
-  // Persist appearance settings
-  useEffect(() => { localStorage.setItem('appTheme', appTheme) }, [appTheme])
-  useEffect(() => { localStorage.setItem('fontSize', fontSize) }, [fontSize])
-  useEffect(() => { localStorage.setItem('darkMode', darkMode) }, [darkMode])
-  useEffect(() => { localStorage.setItem('compactMode', compactMode) }, [compactMode])
+  // Persist notification settings
+  useEffect(() => {
+    localStorage.setItem('farmNotifSettings', JSON.stringify(notifSettings))
+  }, [notifSettings])
+
+  // ── Toast Notification (stacked, 1s) ──
+  const showToast = useCallback((msg, type = 'success') => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { msg, type, id }])
+    // Add to notification center
+    setNotifications(prev => [{ id, msg, type, time: new Date().toISOString(), read: false }, ...prev].slice(0, 100))
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 1000)
+  }, [])
+
+  const dismissToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }, [])
+
+  const markAllNotifsRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }, [])
+
+  const markNotificationRead = useCallback((id) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }, [])
+
+  const deleteNotification = useCallback((id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id))
+  }, [])
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([])
+  }, [])
+
+  const addNotification = useCallback(async (msg, type = 'info', data = {}) => {
+    const id = Date.now()
+    const newNotif = { id, msg, type, time: new Date().toISOString(), read: false, ...data }
+    
+    setNotifications(prev => [newNotif, ...prev].slice(0, 100))
+
+    // If app is open, show in-app banner
+    if (notifSettings.enabled) {
+      setInAppBanner(newNotif)
+      setTimeout(() => setInAppBanner(null), 5000)
+    }
+
+    // Capacitor Local Notification if needed
+    if (notifSettings.enabled && window.Capacitor) {
+       import('../services/notificationService').then(({ notificationService }) => {
+         notificationService.scheduleLocal(id, 'تنبيه جديد', msg, Date.now() + 1000)
+       })
+    }
+  }, [notifSettings])
+
+  // Initialize Notification Service
+  useEffect(() => {
+    if (!user) return
+
+    const initNotifs = async () => {
+      const { notificationService } = await import('../services/notificationService')
+      
+      // Init platform-specific notifications
+      if (window.Capacitor) {
+        await notificationService.initCapacitor()
+      } else {
+        const token = await notificationService.init()
+        if (token) setPushToken(token)
+      }
+
+      // Handle direct messages (Foreground)
+      const unsub = notificationService.onMessageReceived((payload) => {
+        const { title, body } = payload.notification
+        addNotification(body, 'info', { title })
+      })
+      return unsub
+    }
+
+    const unsubPromise = initNotifs()
+    return () => {
+      unsubPromise.then(unsub => unsub && unsub())
+    }
+  }, [user, addNotification])
+  useEffect(() => { localStorage.setItem('isHeaderSwapped', isHeaderSwapped) }, [isHeaderSwapped])
   useEffect(() => { localStorage.setItem('topNavTabs', JSON.stringify(topTabs)) }, [topTabs])
   useEffect(() => {
     try { localStorage.setItem('farmNotifs', JSON.stringify(notifications.slice(0, 100))) } catch {}
@@ -159,31 +251,6 @@ export function FarmProvider({ children }) {
     }
   }, [cows, milkRecords, finances, births, inseminations, vaccinations, dryPeriodDays])
 
-  // ── Toast Notification (stacked, 1s) ──
-  const showToast = useCallback((msg, type = 'success') => {
-    const id = Date.now()
-    setToasts(prev => [...prev, { msg, type, id }])
-    // Add to notification center
-    setNotifications(prev => [{ id, msg, type, time: new Date().toISOString(), read: false }, ...prev].slice(0, 100))
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 1000)
-  }, [])
-
-  const dismissToast = useCallback((id) => {
-    setToasts(prev => prev.filter(t => t.id !== id))
-  }, [])
-
-  const markAllNotifsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-  }, [])
-
-  const clearNotifications = useCallback(() => {
-    setNotifications([])
-  }, [])
-
-  const addNotification = useCallback((msg, type = 'info') => {
-    const id = Date.now()
-    setNotifications(prev => [{ id, msg, type, time: new Date().toISOString(), read: false }, ...prev].slice(0, 100))
-  }, [])
 
   // ── Global Confirm Dialog ──
   const showConfirm = useCallback((options) => {
@@ -763,9 +830,11 @@ export function FarmProvider({ children }) {
     confirmDialog, showConfirm, closeConfirm,
     // Appearance
     appTheme, setAppTheme, fontSize, setFontSize, darkMode, setDarkMode, compactMode, setCompactMode,
+    isHeaderSwapped, setIsHeaderSwapped,
     // Notifications
-    notifications, notifOpen, setNotifOpen, searchOpen, setSearchOpen,
-    markAllNotifsRead, clearNotifications, addNotification,
+    notifications, unreadCount, notifOpen, setNotifOpen, searchOpen, setSearchOpen,
+    markAllNotifsRead, markNotificationRead, deleteNotification, clearNotifications, addNotification,
+    notifSettings, setNotifSettings, inAppBanner, setInAppBanner, pushToken,
     // Network
     isOnline,
     // Data
@@ -798,8 +867,8 @@ export function FarmProvider({ children }) {
     daysBetween, daysLeft, addDays, generateCalfId, formatAge,
   }), [
     user, authLoading, farmName, currency, toasts, confirmDialog,
-    appTheme, fontSize, darkMode, compactMode,
-    notifications, notifOpen, searchOpen,
+    appTheme, fontSize, darkMode, compactMode, isHeaderSwapped,
+    notifications, unreadCount, notifOpen, searchOpen,
     isOnline,
     dryPeriodDays,
     topTabs, updateTopTabs,

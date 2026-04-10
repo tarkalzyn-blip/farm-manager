@@ -5,6 +5,7 @@ import Sidebar from './components/Layout/Sidebar'
 import AlertToast from './components/Layout/AlertToast'
 import ConfirmDialog from './components/Layout/ConfirmDialog'
 import GlobalSearch from './components/Layout/GlobalSearch'
+import InAppNotification from './components/Layout/InAppNotification'
 import NotificationCenter from './components/Layout/NotificationCenter'
 
 import DashboardPage from './components/Dashboard/DashboardPage'
@@ -18,6 +19,7 @@ import WorkersPage from './components/Workers/WorkersPage'
 import FeedPage from './components/Feed/FeedPage'
 import ReportsPage from './components/Reports/ReportsPage'
 import SettingsPage from './components/Settings/SettingsPage'
+import NotificationsPage from './components/Notifications/NotificationsPage'
 
 // Theme CSS variables map
 const THEMES = {
@@ -63,11 +65,21 @@ class ErrorBoundary extends React.Component {
 }
 
 function AppInner() {
-  const { user, authLoading, setFarmName, appTheme, fontSize, darkMode, compactMode, isOnline, topTabs, ALL_PAGES } = useFarm()
+  const { 
+    user, authLoading, setFarmName, appTheme, fontSize, darkMode, compactMode, 
+    isOnline, topTabs, ALL_PAGES, isHeaderSwapped,
+    setNotifOpen, setSearchOpen, closeConfirm, confirmDialog, notifOpen, searchOpen
+  } = useFarm()
   const [activePage, setActivePage] = useState(() => localStorage.getItem('farmPage') || 'dashboard')
   const [renderedPage, setRenderedPage] = useState(() => localStorage.getItem('farmPage') || 'dashboard')
   const [isNavigating, setIsNavigating] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // ── Flutter-style Navigation State ───────────────────────────────
+  const [isSearching, setIsSearching] = useState(false)
+  const [isAppBarVisible, setIsAppBarVisible] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const lastScrollOffset = useRef(0)
 
   // ── Back button support ──────────────────────────────────────────
   const navHistory    = useRef([])          // stack of pages visited
@@ -78,6 +90,21 @@ function AppInner() {
   // Memoized handlers to prevent layout re-renders
   const handleMenuOpen = useCallback(() => setMobileMenuOpen(true), [])
   const handleMenuClose = useCallback(() => setMobileMenuOpen(false), [])
+
+  // ── Handle Scroll (Hide/Show AppBar) ─────────────────────────────
+  useEffect(() => {
+    const onScroll = () => {
+      const current = window.scrollY
+      if (current > lastScrollOffset.current && current > 60) {
+        if (isAppBarVisible && !isSearching) setIsAppBarVisible(false)
+      } else if (current < lastScrollOffset.current) {
+        if (!isAppBarVisible) setIsAppBarVisible(true)
+      }
+      lastScrollOffset.current = current
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [isAppBarVisible, isSearching])
 
   // Load farm name from localStorage
   useEffect(() => {
@@ -137,6 +164,7 @@ function AppInner() {
     setActivePage(p)
     localStorage.setItem('farmPage', p)
     setMobileMenuOpen(false)
+    setIsSearching(false) // Close search on navigation
 
     setIsNavigating(true)
     setTimeout(() => {
@@ -147,37 +175,68 @@ function AppInner() {
     }, 150)
   }, [renderedPage])
 
-  // ── Handle hardware/browser back button (Android + PWA) ──
+  // ── Handle hardware/browser back button (Android Style) ──
   useEffect(() => {
 
-    // المنطق المشترك بين Capacitor/Cordova و browser popstate
     const handleBack = () => {
+      // 1. Priority: Close active overlays first
+      
+      // Close Search (Global or Local)
+      if (isSearching || searchOpen) {
+        setIsSearching(false)
+        setSearchOpen(false)
+        setSearchQuery('')
+        // Maintain history state
+        window.history.pushState({ page: activePage }, '', window.location.pathname)
+        return true
+      }
+
+      // Close Mobile Menu (Sidebar)
+      if (mobileMenuOpen) {
+        setMobileMenuOpen(false)
+        window.history.pushState({ page: activePage }, '', window.location.pathname)
+        return true
+      }
+
+      // Close Notification Drawer
+      if (notifOpen) {
+        setNotifOpen(false)
+        window.history.pushState({ page: activePage }, '', window.location.pathname)
+        return true
+      }
+
+      // Close Global Confirm Dialog
+      if (confirmDialog) {
+        closeConfirm()
+        window.history.pushState({ page: activePage }, '', window.location.pathname)
+        return true
+      }
+
+      // 2. Navigation: Pop from history if available
       if (navHistory.current.length > 0) {
-        // يوجد تاريخ → رجوع للصفحة السابقة
         const prevPage = navHistory.current.pop()
         setActivePage(prevPage)
         localStorage.setItem('farmPage', prevPage)
-        setMobileMenuOpen(false)
         setIsNavigating(true)
         setTimeout(() => {
           setRenderedPage(prevPage)
           requestAnimationFrame(() => requestAnimationFrame(() => setIsNavigating(false)))
         }, 150)
-        // نعيد push حتى يظل popstate يشتغل
+        // Ensure browser history reflects current state
         window.history.pushState({ page: prevPage }, '', window.location.pathname)
-        return true // منع الخروج في Capacitor
+        return true
       }
 
-      // لا يوجد تاريخ → ضغطض مزدوج
+      // 3. Exit Logic: Home Page double-press
       const now = Date.now()
       if (now - lastBackPress.current < 2000) {
         clearTimeout(exitToastTimer.current)
         setShowExitToast(false)
-        // Capacitor exit
         try {
           if (window.Capacitor?.Plugins?.App) {
             window.Capacitor.Plugins.App.exitApp()
           } else {
+            // Web fallback
             window.history.go(-(window.history.length))
             setTimeout(() => window.close(), 100)
           }
@@ -185,9 +244,10 @@ function AppInner() {
         return true
       }
 
+      // First press: Show warning
       lastBackPress.current = now
       setShowExitToast(true)
-      window.history.pushState({}, '', window.location.pathname)
+      window.history.pushState({ page: activePage }, '', window.location.pathname)
       clearTimeout(exitToastTimer.current)
       exitToastTimer.current = setTimeout(() => {
         setShowExitToast(false)
@@ -196,21 +256,17 @@ function AppInner() {
       return true
     }
 
-    // ─ Capacitor / Cordova ──────────────────────────────────
-    // Capacitor v5+ يستخدم document event 'backbutton'
     const cordovaBack = (e) => {
-      e?.preventDefault?.();
-      e?.stopPropagation?.();
+      e?.preventDefault?.()
+      e?.stopPropagation?.()
       handleBack()
     }
     document.addEventListener('backbutton', cordovaBack, false)
 
-    // ─ Browser popstate ─────────────────────────────────
     const handlePopState = (e) => {
       e.preventDefault()
       handleBack()
     }
-    window.history.pushState({}, '', window.location.pathname)
     window.addEventListener('popstate', handlePopState)
 
     return () => {
@@ -218,11 +274,11 @@ function AppInner() {
       window.removeEventListener('popstate', handlePopState)
       clearTimeout(exitToastTimer.current)
     }
-  }, []) // refs only — no state deps needed
+  }, [isSearching, mobileMenuOpen, renderedPage, activePage]) 
 
   const currentPage = useMemo(() => {
     switch(renderedPage) {
-      case 'cows':      return <CowsPage />
+      case 'cows':      return <CowsPage search={searchQuery} />
       case 'milk':      return <MilkPage />
       case 'health':    return <HealthPage />
       case 'feed':      return <FeedPage />
@@ -232,9 +288,10 @@ function AppInner() {
       case 'workers':   return <WorkersPage />
       case 'reports':   return <ReportsPage />
       case 'settings':  return <SettingsPage />
+      case 'notifications': return <NotificationsPage />
       default:          return <DashboardPage onNav={handleNav} />
     }
-  }, [renderedPage, handleNav])
+  }, [renderedPage, handleNav, searchQuery])
 
   if (authLoading) {
     return (
@@ -262,7 +319,17 @@ function AppInner() {
             <span>🔴 غير متصل بالإنترنت — وضع التخزين المحلي مفعل</span>
           </div>
         )}
-        <MobileTopbar onMenuOpen={handleMenuOpen} activePage={renderedPage} onNav={handleNav} />
+        <MobileTopbar
+          onMenuOpen={handleMenuOpen}
+          activePage={renderedPage}
+          onNav={handleNav}
+          isAppBarVisible={isAppBarVisible}
+          isSearching={isSearching}
+          setIsSearching={setIsSearching}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          isHeaderSwapped={isHeaderSwapped}
+        />
         <div className={`page-wrapper ${isNavigating ? 'page-exit' : 'page-enter'}`}>
           {currentPage}
         </div>
@@ -271,6 +338,7 @@ function AppInner() {
       <ConfirmDialog />
       <GlobalSearch />
       <NotificationCenter />
+      <InAppNotification />
 
       {/* ── Double-press to exit toast ── */}
       <div className={`exit-toast${showExitToast ? ' exit-toast-show' : ''}`}>
@@ -296,6 +364,7 @@ const TAB_ICON_PATHS = {
   workers:   ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2','M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z','M23 21v-2a4 4 0 0 0-3-3.87','M16 3.13a4 4 0 0 1 0 7.75'],
   reports:   ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z','M14 2v6h6','M16 13H8','M16 17H8','M10 9H8'],
   settings:  ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z','M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'],
+  notifications: ['M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9','M13.73 21a2 2 0 0 1-3.46 0'],
 }
 
 const TabIcon = ({ page, size = 22, active }) => {
@@ -311,62 +380,124 @@ const TabIcon = ({ page, size = 22, active }) => {
   )
 }
 
-// ── Unified Mobile Topbar — Facebook-style icon tabs ──
-const MobileTopbar = memo(function MobileTopbar({ onMenuOpen, activePage, onNav }) {
-  const { topTabs, ALL_PAGES, stats } = useFarm()
+// ── Unified Mobile Topbar — Facebook-style two-row header ──
+const MobileTopbar = memo(function MobileTopbar({
+  onMenuOpen, activePage, onNav,
+  isAppBarVisible, isSearching, setIsSearching, searchQuery, setSearchQuery, isHeaderSwapped
+}) {
+  const { topTabs, ALL_PAGES, stats, unreadCount } = useFarm()
 
   const badgeMap = {
     dashboard: ((stats.sickCows > 0 ? stats.sickCows : 0) + (stats.pendingAlerts?.length || 0) + (stats.soonBirths?.length || 0)) || null,
     cows:     stats.sickCows > 0 ? stats.sickCows : null,
     breeding: (stats.pendingAlerts?.length || 0) > 0 ? stats.pendingAlerts.length : null,
     health:   stats.sickCows > 0 ? stats.sickCows : null,
+    notifications: unreadCount > 0 ? unreadCount : null,
   }
 
-  // Get page label for tabs
   const getTabInfo = (page) => ALL_PAGES.find(p => p.page === page)
+  const activePageInfo = getTabInfo(activePage)
+
+  // Icons for the top row
+  const MenuIcon = () => (
+    <button className="header-action-btn" onClick={onMenuOpen} aria-label="القائمة">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  )
+
+  const SearchIcon = () => (
+    <button className="header-action-btn" onClick={() => setIsSearching(true)} aria-label="بحث">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    </button>
+  )
 
   return (
-    <div className="mobile-tab-bar">
-      {topTabs.map((page) => {
-        const info = getTabInfo(page)
-        if (!info) return null
-        const isActive = activePage === page
-        const badge = badgeMap[page]
-        return (
-          <button
-            key={page}
-            className={`tab-bar-item${isActive ? ' active' : ''}`}
-            onClick={() => onNav(page)}
-            aria-label={info.label}
-          >
-            <span className="tab-bar-icon">
-              <TabIcon page={page} active={isActive} />
-              {badge && (
-                <span className="tab-bar-badge">{badge > 99 ? '99+' : badge}</span>
-              )}
-            </span>
-            <span className="tab-bar-label">{info.label}</span>
-            {isActive && <span className="tab-bar-indicator" />}
-          </button>
-        )
-      })}
+    <div className={`mobile-tab-bar ${isAppBarVisible ? '' : 'mobile-tab-bar-hidden'}${isSearching ? ' searching' : ''}`}>
+      {/* ── ROW 1: HEADER (Title + Actions) ── */}
+      <div className="tab-bar-header-row">
+        {isSearching ? (
+          <div className="tab-bar-search-mode">
+            <button className="tab-bar-item active" onClick={() => { setIsSearching(false); setSearchQuery('') }}>
+               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+            </button>
+            <input
+              autoFocus
+              className="tab-bar-search-input"
+              placeholder="بحث..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button className="tab-bar-item" onClick={() => setSearchQuery('')}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className={`header-row-layout ${isHeaderSwapped ? 'swapped' : ''}`}>
+            <SearchIcon />
+            <div className="header-title">{activePageInfo?.label || 'المزرعة'}</div>
+            <MenuIcon />
+          </div>
+        )}
+      </div>
 
-      {/* Fixed hamburger menu button */}
-      <button
-        className="tab-bar-item tab-bar-menu"
-        onClick={onMenuOpen}
-        aria-label="القائمة"
-      >
-        <span className="tab-bar-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </span>
-        <span className="tab-bar-label">القائمة</span>
-      </button>
+      {/* ── ROW 2: NAVIGATION TABS ── */}
+      {!isSearching && (
+        <div className="tab-bar-nav-row">
+          {topTabs.map((page) => {
+            const info = getTabInfo(page)
+            if (!info) return null
+            const isActive = activePage === page
+            const badge = badgeMap[page]
+            
+            // Render basic tab
+            const tabEl = (
+              <button
+                key={page}
+                className={`tab-bar-item${isActive ? ' active' : ''}`}
+                onClick={() => onNav(page)}
+                aria-label={info.label}
+              >
+                <span className="tab-bar-icon">
+                  <TabIcon page={page} active={isActive} />
+                  {badge && (
+                    <span className="tab-bar-badge">{badge > 99 ? '99+' : badge}</span>
+                  )}
+                </span>
+                {isActive && <span className="tab-bar-indicator" />}
+              </button>
+            )
+
+            // If this is the "births" (heart) tab, we inject notifications right after it
+            if (page === 'births') {
+              const notifActive = activePage === 'notifications'
+              const notifBadge = badgeMap.notifications
+              return (
+                <React.Fragment key="births-group">
+                  {tabEl}
+                  <button
+                    key="notifications"
+                    className={`tab-bar-item${notifActive ? ' active' : ''}${unreadCount > 0 ? ' has-new-notif' : ''}`}
+                    onClick={() => onNav('notifications')}
+                    aria-label="الإشعارات"
+                  >
+                    <span className="tab-bar-icon">
+                      <TabIcon page="notifications" active={notifActive} />
+                      {notifBadge && (
+                        <span className="tab-bar-badge red-badge">{notifBadge > 99 ? '99+' : notifBadge}</span>
+                      )}
+                    </span>
+                    {notifActive && <span className="tab-bar-indicator" />}
+                  </button>
+                </React.Fragment>
+              )
+            }
+
+            return tabEl
+          })}
+        </div>
+      )}
     </div>
   )
 })

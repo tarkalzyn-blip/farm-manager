@@ -60,14 +60,15 @@ function TagStrip({ tags, small }) {
   )
 }
 
-export default function CowsPage() {
+export default function CowsPage({ search: globalSearch }) {
   const {
     cows, inseminations, deleteCow, loading, formatAge,
     showConfirm, daysBetween, daysLeft, classifyCow, dryPeriodDays, stats
   } = useFarm()
 
   const [view, setView] = useState(() => localStorage.getItem('cowsView') || 'table')
-  const [search, setSearch] = useState('')
+  const [internalSearch, setInternalSearch] = useState('')
+  const search = globalSearch !== undefined ? globalSearch : internalSearch
   const [filterTag, setFilterTag] = useState(() => localStorage.getItem('cowsFilterTag') || '')
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('cowsSortBy') || 'default')
 
