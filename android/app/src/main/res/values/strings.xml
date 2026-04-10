@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Farm Managerdefined</string>
+    <string name="title_activity_main">Farm Managerdefined</string>
+    <string name="package_name">com.farm.manager</string>
+    <string name="custom_url_scheme">com.farm.manager</string>
+</resources>

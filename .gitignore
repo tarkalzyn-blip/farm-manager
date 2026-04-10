@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+android/build/
+.gradle/
+*.exe
+*.asar
+build_err.txt
+build_output.txt

@@ -1,0 +1,19 @@
+{
+  "name": "مزرعة الأمل",
+  "short_name": "مزرعتي",
+  "description": "نظام إدارة المزرعة المتكامل",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e3a2f",
+  "theme_color": "#1e3a2f",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
