@@ -93,6 +93,7 @@ export function FarmProvider({ children }) {
     }
   })
   const [pushToken, setPushToken] = useState(null)
+  const [notifSound, setNotifSound] = useState(localStorage.getItem('notifSound') || null)
   const [inAppBanner, setInAppBanner] = useState(null)
 
   useEffect(() => {
@@ -140,6 +141,18 @@ export function FarmProvider({ children }) {
     setNotifications([])
   }, [])
 
+  const playNotifSound = useCallback(() => {
+    try {
+      const soundData = localStorage.getItem('notifSound') || notifSound
+      if (soundData) {
+        const audio = new Audio(soundData)
+        audio.play().catch(e => console.warn('Audio play failed:', e))
+      }
+    } catch (err) {
+      console.warn('Notification sound error:', err)
+    }
+  }, [notifSound])
+
   const addNotification = useCallback(async (msg, type = 'info', data = {}) => {
     const id = Date.now()
     const newNotif = { id, msg, type, time: new Date().toISOString(), read: false, ...data }
@@ -149,6 +162,7 @@ export function FarmProvider({ children }) {
     // If app is open, show in-app banner
     if (notifSettings.enabled) {
       setInAppBanner(newNotif)
+      playNotifSound()
       setTimeout(() => setInAppBanner(null), 5000)
     }
 
@@ -865,6 +879,8 @@ export function FarmProvider({ children }) {
     addWorker, toggleWorkerAttendance, deleteWorker,
     // Helpers
     daysBetween, daysLeft, addDays, generateCalfId, formatAge,
+    // Notification Sound
+    notifSound, setNotifSound, playNotifSound
   }), [
     user, authLoading, farmName, currency, toasts, confirmDialog,
     appTheme, fontSize, darkMode, compactMode, isHeaderSwapped,
@@ -874,7 +890,8 @@ export function FarmProvider({ children }) {
     topTabs, updateTopTabs,
     activeCows, cows, milkRecords, inseminations, activeBirths, births, healthRecords, vaccinations, finances, workers, loading, stats,
     classifyCow, daysBetween, daysLeft, addDays, generateCalfId,
-    showToast, showConfirm, closeConfirm, dismissToast, markAllNotifsRead, clearNotifications, addNotification
+    showToast, showConfirm, closeConfirm, dismissToast, markAllNotifsRead, clearNotifications, addNotification,
+    notifSound, setNotifSound, playNotifSound
   ])
 
   return <FarmContext.Provider value={value}>{children}</FarmContext.Provider>

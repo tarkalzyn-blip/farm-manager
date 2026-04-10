@@ -1,0 +1,76 @@
+{
+  "project_info": {
+    "project_number": "633933725815",
+    "project_id": "tarikmanger",
+    "storage_bucket": "tarikmanger.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:633933725815:android:a6e04b652e9febc05c0672",
+        "android_client_info": {
+          "package_name": "com.cow.manager"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "633933725815-dombjbn1o3uoi71gbmh2l490b9qpmkjj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cow.manager",
+            "certificate_hash": "9bf1222e8513fe541a7398663d685588dcf0d8df"
+          }
+        },
+        {
+          "client_id": "633933725815-9ad4lefgemfornu8iguk4vd8e5dob68l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMPyeiUVa5NRl0Ml2XEy7BoLsiru-P1jU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "633933725815-9ad4lefgemfornu8iguk4vd8e5dob68l.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:633933725815:android:bb6dbe8587281e585c0672",
+        "android_client_info": {
+          "package_name": "tarikmanger.com"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "633933725815-9ad4lefgemfornu8iguk4vd8e5dob68l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMPyeiUVa5NRl0Ml2XEy7BoLsiru-P1jU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "633933725815-9ad4lefgemfornu8iguk4vd8e5dob68l.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.farm.manager"
+    namespace = "com.cow.manager"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.farm.manager"
+        applicationId "com.cow.manager"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 6

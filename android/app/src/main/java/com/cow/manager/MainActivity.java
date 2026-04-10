@@ -1,4 +1,4 @@
-package com.farm.manager;
+package com.cow.manager;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -20,7 +20,8 @@ function ToggleRow({ icon, label, desc, value, onChange }) {
 
 export default function NotificationsTab({ showToast }) {
   const { 
-    notifSettings, setNotifSettings, addNotification, pushToken 
+    notifSettings, setNotifSettings, addNotification, pushToken,
+    notifSound, setNotifSound, playNotifSound
   } = useFarm();
   
   const [permission, setPermission] = useState(
@@ -93,6 +94,76 @@ export default function NotificationsTab({ showToast }) {
             icon="💰" label="تنبيهات المالية" desc="تنبيهات الصرف والتحصيل والتقارير"
             value={notifSettings.finance} onChange={() => toggleNotification('finance')}
           />
+        </div>
+      </div>
+
+      {/* ── Notification Sound ── */}
+      <div className="card">
+        <div className="card-header"><span className="card-title">🎵 نغمة الإشعارات</span></div>
+        <div className="card-body">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>صوت التنبيه الحالي</div>
+                <div style={{ fontSize: 12, color: 'var(--subtext)', marginTop: 2 }}>
+                  {notifSound ? 'نغمة مخصصة' : 'نغمة النظام الافتراضية'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button 
+                  className="btn btn-sm btn-outline" 
+                  onClick={() => playNotifSound()}
+                  title="تجربة الصوت"
+                >
+                  ▶️
+                </button>
+                {notifSound && (
+                  <button 
+                    className="btn btn-sm btn-outline" 
+                    onClick={() => { setNotifSound(null); localStorage.removeItem('notifSound'); showToast('🔄 تم العودة للصوت الافتراضي') }}
+                    title="حذف الصوت المخصص"
+                    style={{ color: 'var(--red)' }}
+                  >
+                    🗑️
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <button 
+              className="btn btn-primary btn-sm" 
+              style={{ width: '100%', gap: 8 }}
+              onClick={() => document.getElementById('notif-file-picker').click()}
+            >
+              📂 اختيار صوت من الجهاز
+            </button>
+            <input 
+              id="notif-file-picker"
+              type="file" 
+              accept="audio/*" 
+              style={{ display: 'none' }} 
+              onChange={(e) => {
+                const file = e.target.files[0]
+                if (file) {
+                  if (file.size > 2 * 1024 * 1024) {
+                    showToast('⚠️ الملف كبير جداً (الأقصى 2MB)', 'error')
+                    return
+                  }
+                  const reader = new FileReader()
+                  reader.onload = (event) => {
+                    const base64 = event.target.result
+                    setNotifSound(base64)
+                    localStorage.setItem('notifSound', base64)
+                    showToast('✅ تم حفظ نغمة التنبيه بنجاح')
+                    // Play test
+                    const audio = new Audio(base64)
+                    audio.play()
+                  }
+                  reader.readAsDataURL(file)
+                }
+              }}
+            />
+          </div>
         </div>
       </div>
 

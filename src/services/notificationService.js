@@ -5,20 +5,49 @@ class NotificationService {
   constructor() {
     this.token = null
     this.isSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator
-    this.vapidKey = 'BF-GzD-placeholder-key' // Should be replaced with actual VAPID key
+    this.isElectron = typeof window !== 'undefined' && !!window.electronAPI
+    this.vapidKey = 'BNDEi_U6bnXYVX8D2ldw4OwSzwhc-Ltul1GGsoH_n2KojCQBhJCONRVP9dSq18UDvJo_DFqa1N14E4wkx8QcxEo'
   }
 
   async init() {
+    // ── Handle Electron ──
+    if (this.isElectron) {
+      return new Promise((resolve) => {
+        window.electronAPI.onTokenReceived((token) => {
+          this.token = token
+          localStorage.setItem('farmFCMToken', token)
+          resolve(token)
+        })
+        // Trigger token retrieval
+        window.electronAPI.getFCMToken()
+      })
+    }
+
     if (!this.isSupported) return null
 
     try {
       // 1. Request Browser Permissions
       const permission = await Notification.requestPermission()
-      if (permission !== 'granted') return null
+      if (permission !== 'granted') {
+        console.warn('Notification permission not granted')
+        return null
+      }
 
-      // 2. Get FCM Token
-      this.token = await getToken(messaging, { vapidKey: this.vapidKey })
-      console.log('FCM Token:', this.token)
+      // 2. Register Service Worker Explicitly
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+      console.log('Service Worker registered with scope:', registration.scope)
+
+      // 3. Get FCM Token
+      this.token = await getToken(messaging, { 
+        vapidKey: this.vapidKey,
+        serviceWorkerRegistration: registration 
+      })
+
+      if (this.token) {
+        console.log('FCM Token:', this.token)
+        localStorage.setItem('farmFCMToken', this.token)
+      }
+      
       return this.token
     } catch (err) {
       console.error('Notification Service Error:', err)
@@ -28,11 +57,40 @@ class NotificationService {
 
   // Handle foreground messages
   onMessageReceived(callback) {
+    if (this.isElectron) {
+      window.electronAPI.onPushReceived((payload) => {
+        console.log('Received Electron push:', payload)
+        callback(payload)
+      })
+      return
+    }
+
     if (!messaging) return
     return onMessage(messaging, (payload) => {
       console.log('Received foreground message:', payload)
       callback(payload)
     })
+  }
+
+  async createChannel() {
+    if (typeof window === 'undefined' || !window.Capacitor) return
+    const { PushNotifications } = window.Capacitor.Plugins
+    if (!PushNotifications) return
+
+    try {
+      await PushNotifications.createChannel({
+        id: 'default',
+        name: 'Default Notifications',
+        description: 'General farm alerts',
+        importance: 5, // High
+        visibility: 1, // Public
+        sound: 'beep.wav',
+        vibration: true
+      })
+      console.log('Notification channel created')
+    } catch (err) {
+      console.error('Error creating channel:', err)
+    }
   }
 
   // Capacitor (Android/iOS) Specific Logic
@@ -41,6 +99,9 @@ class NotificationService {
 
     const { PushNotifications } = window.Capacitor.Plugins
     if (!PushNotifications) return
+
+    // Create channel for Android
+    await this.createChannel()
 
     let permStatus = await PushNotifications.checkPermissions()
     if (permStatus.receive === 'prompt') {
@@ -84,6 +145,7 @@ class NotificationService {
           body,
           id,
           schedule: { at: new Date(scheduleAt) },
+          channelId: 'default', // crucial for Android
           sound: null,
           attachments: null,
           actionTypeId: '',

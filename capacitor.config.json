@@ -1,5 +1,10 @@
 {
-  "appId": "com.farm.manager",
+  "appId": "com.cow.manager",
   "appName": "Farm Managerdefined",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
 }

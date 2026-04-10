@@ -1,6 +1,9 @@
-import { app, BrowserWindow, Menu, dialog } from 'electron'
+import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron'
 import { fileURLToPath } from 'url'
 import path from 'path'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const { setupPushReceiver, ON_TOKEN_RECEIVER, ON_NOTIFICATION_RECEIVER } = require('electron-push-receiver')
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -21,6 +24,28 @@ function createWindow() {
       nodeIntegration: false,
     },
     autoHideMenuBar: false,
+  })
+
+  // ── Push Receiver Setup ──
+  setupPushReceiver(mainWindow.webContents)
+
+  // Listen for Token
+  ON_TOKEN_RECEIVER((token) => {
+    console.log('FCM Token (Desktop):', token)
+    mainWindow.webContents.send('fcm-token', token)
+  })
+
+  // Listen for Notification
+  ON_NOTIFICATION_RECEIVER((notification) => {
+    console.log('Push Received (Desktop):', notification)
+    mainWindow.webContents.send('push-notification', notification)
+  })
+
+  // IPC Handler for Token retrieval
+  ipcMain.on('get-fcm-token', () => {
+    // electron-push-receiver handles the internal registration
+    // We can just wait for the ON_TOKEN_RECEIVER event which is triggered on setup
+    console.log('Renderer requested FCM token')
   })
 
   if (isDev) {
