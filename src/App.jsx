@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useRef, memo, useCallback, useMemo, lazy, Suspense } from 'react'
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { FarmProvider, useFarm } from './context/FarmContext'
 import AuthPage from './components/Auth/AuthPage'
 import Sidebar from './components/Layout/Sidebar'
@@ -8,18 +9,18 @@ import GlobalSearch from './components/Layout/GlobalSearch'
 import InAppNotification from './components/Layout/InAppNotification'
 import NotificationCenter from './components/Layout/NotificationCenter'
 
-import DashboardPage from './components/Dashboard/DashboardPage'
-import CowsPage from './components/Cows/CowsPage'
-import MilkPage from './components/Milk/MilkPage'
-import BreedingPage from './components/Breeding/BreedingPage'
-import BirthsPage from './components/Births/BirthsPage'
-import HealthPage from './components/Health/HealthPage'
-import FinancePage from './components/Finance/FinancePage'
-import WorkersPage from './components/Workers/WorkersPage'
-import FeedPage from './components/Feed/FeedPage'
-import ReportsPage from './components/Reports/ReportsPage'
-import SettingsPage from './components/Settings/SettingsPage'
-import NotificationsPage from './components/Notifications/NotificationsPage'
+const DashboardPage = lazy(() => import('./components/Dashboard/DashboardPage'))
+const CowsPage = lazy(() => import('./components/Cows/CowsPage'))
+const MilkPage = lazy(() => import('./components/Milk/MilkPage'))
+const BreedingPage = lazy(() => import('./components/Breeding/BreedingPage'))
+const BirthsPage = lazy(() => import('./components/Births/BirthsPage'))
+const HealthPage = lazy(() => import('./components/Health/HealthPage'))
+const FinancePage = lazy(() => import('./components/Finance/FinancePage'))
+const WorkersPage = lazy(() => import('./components/Workers/WorkersPage'))
+const FeedPage = lazy(() => import('./components/Feed/FeedPage'))
+const ReportsPage = lazy(() => import('./components/Reports/ReportsPage'))
+const SettingsPage = lazy(() => import('./components/Settings/SettingsPage'))
+const NotificationsPage = lazy(() => import('./components/Notifications/NotificationsPage'))
 
 // Theme CSS variables map
 const THEMES = {
@@ -70,8 +71,12 @@ function AppInner() {
     isOnline, topTabs, ALL_PAGES, isHeaderSwapped,
     setNotifOpen, setSearchOpen, closeConfirm, confirmDialog, notifOpen, searchOpen
   } = useFarm()
-  const [activePage, setActivePage] = useState(() => localStorage.getItem('farmPage') || 'dashboard')
-  const [renderedPage, setRenderedPage] = useState(() => localStorage.getItem('farmPage') || 'dashboard')
+  const navigate = useNavigate()
+  const location = useLocation()
+  
+  // The active page is derived from the route path (e.g., '/cows' -> 'cows')
+  const activePage = location.pathname.length > 1 ? location.pathname.substring(1) : 'dashboard'
+  const renderedPage = activePage
   const [isNavigating, setIsNavigating] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -156,24 +161,20 @@ function AppInner() {
   }, [compactMode])
 
   const handleNav = useCallback((p) => {
-    if (p === renderedPage) return
+    if (p === activePage) return
 
-    navHistory.current.push(renderedPage)
-    window.history.pushState({ page: p }, '', window.location.pathname)
-
-    setActivePage(p)
-    localStorage.setItem('farmPage', p)
     setMobileMenuOpen(false)
     setIsSearching(false) // Close search on navigation
 
     setIsNavigating(true)
+    navigate(`/${p}`)
+    
     setTimeout(() => {
-      setRenderedPage(p)
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setIsNavigating(false))
       })
     }, 150)
-  }, [renderedPage])
+  }, [activePage, navigate])
 
   // ── Handle hardware/browser back button (Android Style) ──
   useEffect(() => {
@@ -213,17 +214,8 @@ function AppInner() {
       }
 
       // 2. Navigation: Pop from history if available
-      if (navHistory.current.length > 0) {
-        const prevPage = navHistory.current.pop()
-        setActivePage(prevPage)
-        localStorage.setItem('farmPage', prevPage)
-        setIsNavigating(true)
-        setTimeout(() => {
-          setRenderedPage(prevPage)
-          requestAnimationFrame(() => requestAnimationFrame(() => setIsNavigating(false)))
-        }, 150)
-        // Ensure browser history reflects current state
-        window.history.pushState({ page: prevPage }, '', window.location.pathname)
+      if (location.pathname !== '/' && location.pathname !== '/dashboard') {
+        navigate(-1)
         return true
       }
 
@@ -276,22 +268,7 @@ function AppInner() {
     }
   }, [isSearching, mobileMenuOpen, renderedPage, activePage]) 
 
-  const currentPage = useMemo(() => {
-    switch(renderedPage) {
-      case 'cows':      return <CowsPage search={searchQuery} />
-      case 'milk':      return <MilkPage />
-      case 'health':    return <HealthPage />
-      case 'feed':      return <FeedPage />
-      case 'breeding':  return <BreedingPage />
-      case 'births':    return <BirthsPage />
-      case 'finance':   return <FinancePage />
-      case 'workers':   return <WorkersPage />
-      case 'reports':   return <ReportsPage />
-      case 'settings':  return <SettingsPage />
-      case 'notifications': return <NotificationsPage />
-      default:          return <DashboardPage onNav={handleNav} />
-    }
-  }, [renderedPage, handleNav, searchQuery])
+
 
   if (authLoading) {
     return (
@@ -331,7 +308,23 @@ function AppInner() {
           isHeaderSwapped={isHeaderSwapped}
         />
         <div className={`page-wrapper ${isNavigating ? 'page-exit' : 'page-enter'}`}>
-          {currentPage}
+          <Suspense fallback={<div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'50vh', gap:16 }}><div style={{ fontSize:40 }} className="loading-icon">🐄</div></div>}>
+            <Routes>
+              <Route path="/cows" element={<CowsPage search={searchQuery} />} />
+              <Route path="/milk" element={<MilkPage />} />
+              <Route path="/health" element={<HealthPage />} />
+              <Route path="/feed" element={<FeedPage />} />
+              <Route path="/breeding" element={<BreedingPage />} />
+              <Route path="/births" element={<BirthsPage />} />
+              <Route path="/finance" element={<FinancePage />} />
+              <Route path="/workers" element={<WorkersPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/dashboard" element={<DashboardPage onNav={handleNav} />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Suspense>
         </div>
       </div>
       <AlertToast />

@@ -79,6 +79,7 @@ body {
   background: var(--bg);
   color: var(--text);
   direction: rtl;
+  overflow-y: auto;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none; /* Native app feel */
@@ -373,7 +374,15 @@ a, button, input {
 }
 
 /* ═══ APP LAYOUT ═══ */
-.app-layout { display: flex; min-height: 100vh; }
+.app-layout { 
+  display: flex; 
+  min-height: 100vh; 
+}
+
+.main-content {
+  width: 100%;
+  height: 100%;
+}
 
 /* ═══ SIDEBAR ═══ */
 .sidebar {
@@ -545,28 +554,51 @@ a, button, input {
 /* ══════════════════════════════════════════════════════════════
    SIDEBAR v2 — Facebook Mobile Style Menu
 ══════════════════════════════════════════════════════════════ */
+.mobile-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+  z-index: 2050;
+}
+.mobile-sidebar-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Sidebar */
 .sidebar-v2 {
   position: fixed;
   top: 0;
   right: 0;
-  width: 72%;
+  width: 280px;
   height: 100vh;
-  z-index: 2100;
-  background: #f0f2f5;
+  background: rgba(30, 42, 36, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transform: translateX(100%);
+  opacity: 0;
+  transition: 
+    transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+    opacity 0.2s ease;
+  z-index: 2000;
   display: flex;
   flex-direction: column;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  transform: translateX(100%);
   direction: rtl;
-  box-shadow: -4px 0 20px rgba(0,0,0,0.15);
 }
 
+/* عند الفتح */
 .sidebar-v2.mobile-open {
   transform: translateX(0);
+  opacity: 1;
 }
 
 .dark-mode .sidebar-v2 {
-  background: #111;
+  background: rgba(17, 17, 17, 0.95);
 }
 
 .menu-v2-header {
@@ -574,11 +606,46 @@ a, button, input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #f0f2f5;
+  background: transparent;
   position: sticky;
   top: 0;
   z-index: 10;
 }
+
+/* ✨ تأثير دخول العناصر داخل القائمة */
+.sidebar-v2.mobile-open .menu-v2-grid-item,
+.sidebar-v2.mobile-open .menu-v2-card,
+.sidebar-v2.mobile-open .menu-v2-section-title,
+.sidebar-v2.mobile-open .menu-v2-accordion {
+  animation: fadeSlideIn 0.4s ease forwards;
+  opacity: 0;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ✨ Delay بسيط لكل عنصر */
+.sidebar-v2.mobile-open .menu-v2-card { animation-delay: 0.05s; }
+.sidebar-v2.mobile-open .menu-v2-section-title { animation-delay: 0.1s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(1) { animation-delay: 0.15s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(2) { animation-delay: 0.20s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(3) { animation-delay: 0.25s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(4) { animation-delay: 0.30s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(5) { animation-delay: 0.35s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(6) { animation-delay: 0.40s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(7) { animation-delay: 0.45s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(8) { animation-delay: 0.50s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(9) { animation-delay: 0.55s; }
+.sidebar-v2.mobile-open .menu-v2-grid-item:nth-child(10) { animation-delay: 0.60s; }
+.sidebar-v2.mobile-open .menu-v2-accordion { animation-delay: 0.65s; }
 
 .dark-mode .menu-v2-header {
   background: #111;
@@ -881,12 +948,23 @@ a, button, input {
 
 /* ═══ MAIN CONTENT ═══ */
 .main-content {
-  margin-right: 248px;
+  width: 100%;
   flex: 1;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
+}
+
+/* Grid Layout for Cow Cards responsive */
+.cows-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.cows-cards-grid > * {
+  min-width: 0;
 }
 
 /* ═══ TOPBAR ═══ */
@@ -1635,7 +1713,7 @@ select.form-control { cursor: pointer; }
   .sidebar { width: 64px; }
   .sidebar-logo-name, .sidebar-logo-sub, .nav-item span:not(.nav-icon), .nav-badge,
   .user-info, .sidebar-version { display: none; }
-  .main-content { margin-right: 64px; }
+  .main-content { margin-right: 0; width: 100%; }
   .sidebar-user { justify-content: center; }
   .nav-item { justify-content: center; padding: 14px; }
   .sidebar-logo::before { display: none; }

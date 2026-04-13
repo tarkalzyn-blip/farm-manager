@@ -75,12 +75,54 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
   const [expandedSection, setExpandedSection] = useState(null)
   const scrollAreaRef = useRef(null)
 
+  const [isAutoOpen, setIsAutoOpen] = useState(false)
+  const hoverTimeoutRef = useRef(null)
+  const sidebarRef = useRef(null)
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const screenWidth = window.innerWidth;
+      
+      // Right edge detection (within 20px)
+      if (e.clientX >= screenWidth - 20) {
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current)
+          hoverTimeoutRef.current = null
+        }
+        setIsAutoOpen(true)
+      } else {
+        // Not on edge. Are we inside the sidebar?
+        if (sidebarRef.current && sidebarRef.current.contains(e.target)) {
+          if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current)
+            hoverTimeoutRef.current = null
+          }
+        } else {
+          if (isAutoOpen && !hoverTimeoutRef.current) {
+            hoverTimeoutRef.current = setTimeout(() => {
+              setIsAutoOpen(false)
+              hoverTimeoutRef.current = null
+            }, 300)
+          }
+        }
+      }
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    }
+  }, [isAutoOpen])
+
+  const showSidebar = isOpen || isAutoOpen
+
   // Reset scroll to top when sidebar is opened
   useEffect(() => {
-    if (isOpen && scrollAreaRef.current) {
+    if (showSidebar && scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = 0
     }
-  }, [isOpen])
+  }, [showSidebar])
 
   const name    = user?.displayName || user?.email?.split('@')[0] || 'مستخدم'
   const email   = user?.email || ''
@@ -117,9 +159,9 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
   return (
     <>
       {/* Mobile overlay */}
-      <div className={`mobile-sidebar-overlay${isOpen ? ' open' : ''}`} onClick={onClose} />
+      <div className={`mobile-sidebar-overlay${showSidebar ? ' open' : ''}`} onClick={() => { onClose?.(); setIsAutoOpen(false) }} />
 
-      <div className={`sidebar-v2${isOpen ? ' mobile-open' : ''}`}>
+      <div ref={sidebarRef} className={`sidebar-v2${showSidebar ? ' mobile-open' : ''}`}>
         
         {/* Header with Logo & Close Icon */}
         <div className="menu-v2-header">
@@ -127,7 +169,7 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
              <img src="/logo.png" alt="Logo" style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid var(--accent)' }} />
              <h2 style={{ fontSize: 20 }}>مزرعة الأمل</h2>
            </div>
-           <button className="menu-v2-header-close" onClick={onClose} aria-label="إغلاق">
+           <button className="menu-v2-header-close" onClick={() => { onClose?.(); setIsAutoOpen(false) }} aria-label="إغلاق">
              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                <line x1="18" y1="6" x2="6" y2="18" />
                <line x1="6" y1="6" x2="18" y2="18" />
@@ -172,7 +214,7 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
               <button 
                 key={item.page} 
                 className={`menu-v2-grid-item${currentPage === item.page ? ' active' : ''}`}
-                onClick={() => { onNav(item.page); onClose?.() }}
+                onClick={() => { onNav(item.page); onClose?.(); setIsAutoOpen(false) }}
               >
                 <div className="menu-v2-grid-icon">
                   <Icon d={ICONS[item.icon]} size={24} />
@@ -209,7 +251,7 @@ const Sidebar = ({ currentPage, onNav, isOpen, onClose }) => {
             </button>
             {expandedSection === 'settings' && (
               <div className="menu-v2-accordion-content">
-                <button className="menu-v2-sub-item" onClick={() => { onNav('settings'); onClose?.() }}>الإعدادات</button>
+                <button className="menu-v2-sub-item" onClick={() => { onNav('settings'); onClose?.(); setIsAutoOpen(false) }}>الإعدادات</button>
                 <div className="menu-v2-sub-item">سجل النشاطات</div>
               </div>
             )}

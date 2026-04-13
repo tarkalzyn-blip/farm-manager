@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, Menu, dialog, ipcMain, Tray, nativeImage } from 'electron'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import { createRequire } from 'module'
@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename)
 const isDev = process.env.NODE_ENV === 'development'
 
 let mainWindow
+let tray = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -18,12 +19,19 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: 'مزرعة الزوين',
+    show: false, // Prevent white flash
+    backgroundColor: '#121a14', // Default dark background
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
     autoHideMenuBar: false,
+  })
+
+  // Show window only when ready to render
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
   })
 
   // ── Push Receiver Setup ──
@@ -55,14 +63,28 @@ function createWindow() {
   }
 
   mainWindow.on('close', (e) => {
+    if (app.isQuiting) {
+      mainWindow = null;
+      return;
+    }
+
+    e.preventDefault();
     const choice = dialog.showMessageBoxSync(mainWindow, {
       type: 'question',
-      buttons: ['نعم، اخرج من البرنامج', 'إلغاء'],
+      buttons: ['إغلاق البرنامج', 'التصغير إلى الخلفية (Tray)', 'إلغاء'],
+      defaultId: 1,
+      cancelId: 2,
       title: 'تأكيد الخروج',
-      message: 'هل تريد الخروج من البرنامج حقاً؟\nملاحظة: جميع بياناتك محفوظة وتتزامن تلقائياً وبشكل فوري السحابة.',
+      message: 'هل تريد إغلاق البرنامج بالكامل أم تشغيله في الخلفية لتلقي الإشعارات؟',
     });
-    if (choice === 1) {
-      e.preventDefault();
+
+    if (choice === 0) {
+      // Quit
+      app.isQuiting = true;
+      app.quit();
+    } else if (choice === 1) {
+      // Minimize to Tray
+      mainWindow.hide();
     }
   });
 
@@ -100,8 +122,32 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow()
+  
+  // Setup Tray
+  try {
+    const iconPath = path.join(__dirname, 'icon.png')
+    const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
+    tray = new Tray(trayIcon)
+    
+    const contextMenu = Menu.buildFromTemplate([
+      { label: 'فتح البرنامج', click: () => { if (mainWindow) mainWindow.show() } },
+      { type: 'separator' },
+      { label: 'إغلاق نهائي', click: () => { app.isQuiting = true; app.quit() } }
+    ])
+    
+    tray.setToolTip('مزرعة الزوين')
+    tray.setContextMenu(contextMenu)
+    
+    tray.on('double-click', () => {
+      if (mainWindow) mainWindow.show()
+    })
+  } catch (err) {
+    console.error('Failed to create tray icon:', err)
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    else if (mainWindow) mainWindow.show()
   })
 })
 

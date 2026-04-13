@@ -440,7 +440,7 @@ export default function CowsPage({ search: globalSearch }) {
           </div>
         ) : (
           /* ── Cards view — Rich design ── */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="cows-cards-grid">
             {sortedFiltered.slice(0, renderLimit).map(c => {
               const detailedTags = getDetailedTags(c)
               const rawTags = classifyCow(c)
