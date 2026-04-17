@@ -30,6 +30,7 @@ export default function GlobalSearch() {
 
   const cowResults = !q ? [] : cows.filter(c =>
     (c.id && c.id.toLowerCase().includes(q)) ||
+    (c.name && c.name.toLowerCase().includes(q)) ||
     (c.status && c.status.includes(q)) ||
     (c.breed && c.breed.toLowerCase().includes(q))
   ).slice(0, 5)

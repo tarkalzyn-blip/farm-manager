@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 import NotificationsTab from './NotificationsTab'
 import { auth } from '../../firebaseConfig'
@@ -37,7 +38,8 @@ export default function SettingsPage() {
     appTheme, setAppTheme, fontSize, setFontSize, darkMode, setDarkMode,
     compactMode, setCompactMode, dryPeriodDays, setDryPeriodDays,
     topTabs, updateTopTabs, ALL_PAGES, MAX_TOP_TABS,
-    isHeaderSwapped, setIsHeaderSwapped
+    isHeaderSwapped, setIsHeaderSwapped,
+    showCowName, setShowCowName
   } = useFarm()
 
   const [activeTab, setActiveTab] = useState(null)
@@ -233,6 +235,11 @@ export default function SettingsPage() {
                 <ToggleRow
                   icon="📐" label="الوضع المضغوط" desc="تقليل المسافات لعرض المزيد من البيانات"
                   value={compactMode} onChange={() => setCompactMode(v => !v)}
+                />
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                <ToggleRow
+                  icon="🏷️" label="إظهار هوية البقرة" desc="عرض أو إخفاء الاسم التعريفي داخل كروت الأبقار"
+                  value={showCowName} onChange={() => setShowCowName(v => !v)}
                 />
               </div>
             </div>
@@ -520,7 +527,7 @@ function EmailChangeModal({ onClose, user, showToast }) {
 
   useEffect(() => () => clearInterval(timerRef.current), [])
 
-  return (
+  return createPortal(
     <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal" style={{ maxWidth: 480 }}>
         <div className="modal-header">
@@ -623,7 +630,8 @@ function EmailChangeModal({ onClose, user, showToast }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.getElementById('modal-root')
   )
 }
 
@@ -683,7 +691,7 @@ function PasswordChangeModal({ onClose, showToast }) {
     } finally { setLoading(false) }
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal" style={{ maxWidth: 440 }}>
         <div className="modal-header">
@@ -730,7 +738,8 @@ function PasswordChangeModal({ onClose, showToast }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.getElementById('modal-root')
   )
 }
 

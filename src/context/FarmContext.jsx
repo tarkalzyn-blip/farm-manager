@@ -22,6 +22,7 @@ export function FarmProvider({ children }) {
   const [darkMode,    setDarkMode]    = useState(localStorage.getItem('darkMode')    === 'true')
   const [compactMode, setCompactMode] = useState(localStorage.getItem('compactMode') === 'true')
   const [isHeaderSwapped, setIsHeaderSwapped] = useState(localStorage.getItem('isHeaderSwapped') === 'true')
+  const [showCowName, setShowCowName] = useState(localStorage.getItem('showCowName') !== 'false') // default true
 
   // ── Top Navigation Bar (Customizable Tabs) ──
   const ALL_PAGES = [
@@ -107,10 +108,14 @@ export function FarmProvider({ children }) {
     }
   }, [])
 
-  // Persist notification settings
+  // Persist appearance settings
   useEffect(() => {
     localStorage.setItem('farmNotifSettings', JSON.stringify(notifSettings))
   }, [notifSettings])
+
+  useEffect(() => {
+    localStorage.setItem('showCowName', showCowName)
+  }, [showCowName])
 
   // ── Toast Notification (stacked, 1s) ──
   const showToast = useCallback((msg, type = 'success') => {
@@ -714,7 +719,7 @@ export function FarmProvider({ children }) {
 
     // ④ فحص التلقيح
     const pendingInsem = inseminations.find(i =>
-      (i.cowFirestoreId === cow.firestoreId) &&
+      (i.cowFirestoreId === cow.firestoreId || i.cowId === cow.id) &&
       i.status === 'pending'
     )
     let hasCheckOrFailed = false
@@ -729,7 +734,7 @@ export function FarmProvider({ children }) {
     let isDry = false
 
     const confirmedInsem = inseminations.find(i =>
-      (i.cowFirestoreId === cow.firestoreId) &&
+      (i.cowFirestoreId === cow.firestoreId || i.cowId === cow.id) &&
       i.status === 'confirmed'
     )
 
@@ -844,7 +849,7 @@ export function FarmProvider({ children }) {
     confirmDialog, showConfirm, closeConfirm,
     // Appearance
     appTheme, setAppTheme, fontSize, setFontSize, darkMode, setDarkMode, compactMode, setCompactMode,
-    isHeaderSwapped, setIsHeaderSwapped,
+    isHeaderSwapped, setIsHeaderSwapped, showCowName, setShowCowName,
     // Notifications
     notifications, unreadCount, notifOpen, setNotifOpen, searchOpen, setSearchOpen,
     markAllNotifsRead, markNotificationRead, deleteNotification, clearNotifications, addNotification,
@@ -852,10 +857,10 @@ export function FarmProvider({ children }) {
     // Network
     isOnline,
     // Data
-    cows: activeCows,
+    cows: activeCows.length > 0 ? activeCows : cows.filter(c => !c.isSold),
     allCows: cows,
     milkRecords, inseminations,
-    births: activeBirths,
+    births: activeBirths.length > 0 ? activeBirths : births.filter(b => !b.isSold),
     allBirths: births,
     healthRecords, vaccinations, finances, workers,
     loading, stats,
@@ -885,6 +890,7 @@ export function FarmProvider({ children }) {
     user, authLoading, farmName, currency, toasts, confirmDialog,
     appTheme, fontSize, darkMode, compactMode, isHeaderSwapped,
     notifications, unreadCount, notifOpen, searchOpen,
+    showCowName,
     isOnline,
     dryPeriodDays,
     topTabs, updateTopTabs,

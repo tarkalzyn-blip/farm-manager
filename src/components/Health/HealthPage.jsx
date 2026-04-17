@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 import ActionMenu from '../Layout/ActionMenu'
 
@@ -14,7 +15,7 @@ const CowDisplay = ({ cow, fallbackName }) => {
   )
 }
 
-export default function HealthPage() {
+export default function HealthPage({ search = '' }) {
   const { cows, healthRecords, vaccinations, addHealthRecord, markCowRecovered, addVaccination, markVaccinationDone, deleteHealthRecord, deleteVaccination, loading, showConfirm } = useFarm()
   const today = new Date().toISOString().split('T')[0]
 
@@ -74,6 +75,28 @@ export default function HealthPage() {
     })
   }
 
+  const q = search.toLowerCase()
+  const filteredHealth = useMemo(() => {
+    if (!q) return healthRecords
+    return healthRecords.filter(h => {
+      const cow = cows.find(c => c.firestoreId === h.cowId)
+      return (
+        h.cowId.toString().includes(q) ||
+        (h.disease && h.disease.toLowerCase().includes(q)) ||
+        (h.treatment && h.treatment.toLowerCase().includes(q)) ||
+        (cow?.name && cow.name.toLowerCase().includes(q))
+      )
+    })
+  }, [healthRecords, q, cows])
+
+  const filteredVax = useMemo(() => {
+    if (!q) return vaccinations
+    return vaccinations.filter(v => 
+      (v.type && v.type.toLowerCase().includes(q)) ||
+      (v.targetCows && v.targetCows.toLowerCase().includes(q))
+    )
+  }, [vaccinations, q])
+
   const sickCows = cows.filter(c => c.status === 'مريضة')
 
   return (
@@ -107,7 +130,7 @@ export default function HealthPage() {
                 <table>
                   <thead><tr><th>البقرة</th><th>المرض</th><th>العلاج</th><th>التاريخ</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
                   <tbody>
-                    {healthRecords.slice(0, renderLimit).map(h => {
+                    {filteredHealth.slice(0, renderLimit).map(h => {
                       const cow = cows.find(c => c.firestoreId === h.cowId)
                       return (
                         <tr key={h.firestoreId}>
@@ -151,7 +174,7 @@ export default function HealthPage() {
                 <table>
                   <thead><tr><th>التطعيم</th><th>الأبقار</th><th>الموعد</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
                   <tbody>
-                    {vaccinations.slice(0, renderLimit).map(v => (
+                    {filteredVax.slice(0, renderLimit).map(v => (
                       <tr key={v.firestoreId}>
                         <td>{v.type}</td>
                         <td>{v.targetCows}</td>
@@ -182,7 +205,7 @@ export default function HealthPage() {
       </div>
 
       {/* Health Modal */}
-      {hOpen && (
+      {hOpen && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setHOpen(false) }}>
           <div className="modal">
             <div className="modal-header"><span className="modal-title">🏥 تسجيل حالة صحية</span><button className="modal-close" onClick={() => setHOpen(false)}>✕</button></div>
@@ -234,11 +257,12 @@ export default function HealthPage() {
               <button className="btn btn-primary" onClick={saveHealth} disabled={saving}>{saving?'⏳...':'💾 حفظ'}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
 
       {/* Vax Modal */}
-      {vOpen && (
+      {vOpen && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setVOpen(false) }}>
           <div className="modal">
             <div className="modal-header"><span className="modal-title">💉 جدولة تطعيم</span><button className="modal-close" onClick={() => setVOpen(false)}>✕</button></div>
@@ -249,7 +273,7 @@ export default function HealthPage() {
                   <input className="form-control" placeholder="حمى قلاعية" value={vForm.type} onChange={e => setVForm(f=>({...f,type:e.target.value}))} />
                 </div>
                 <div className="form-group">
-                  <label>الأبقار المستهدفة</label>
+                  <label>أبقار المستهدفة</label>
                   <input className="form-control" value={vForm.targetCows} onChange={e => setVForm(f=>({...f,targetCows:e.target.value}))} />
                 </div>
                 <div className="form-group">
@@ -267,7 +291,8 @@ export default function HealthPage() {
               <button className="btn btn-info" onClick={saveVax} disabled={saving}>{saving?'⏳...':'💉 جدولة'}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
     </div>
   )

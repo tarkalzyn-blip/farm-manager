@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 
 export default function CowForm({ cow, onClose }) {
@@ -7,6 +8,7 @@ export default function CowForm({ cow, onClose }) {
 
   const [form, setForm] = useState({
     id:           cow?.id          || '',
+    name:         cow?.name        || '',
     breed:        cow?.breed       || 'هولشتاين',
     age:          cow?.age         || '',
     status:       cow?.status      || 'سليمة',
@@ -66,7 +68,7 @@ export default function CowForm({ cow, onClose }) {
     })
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) onClose() }}>
       <div className="modal">
         <div className="modal-header">
@@ -84,6 +86,10 @@ export default function CowForm({ cow, onClose }) {
                   <option value="أزرق">أزرق</option>
                 </select>
               </div>
+            </div>
+            <div className="form-group">
+              <label>اسم البقرة (اختياري)</label>
+              <input className="form-control" placeholder="مثال: وردة، نوارة..." value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
             <div className="form-group">
               <label>المصدر</label>
@@ -158,6 +164,7 @@ export default function CowForm({ cow, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.getElementById('modal-root')
   )
 }

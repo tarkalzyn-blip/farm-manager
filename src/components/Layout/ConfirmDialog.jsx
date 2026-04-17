@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 
 const TYPE_STYLES = {
@@ -18,7 +19,7 @@ export default function ConfirmDialog() {
     await confirmDialog.onConfirm()
   }
 
-  return (
+  return createPortal(
     <div
       className="modal-overlay open"
       style={{ zIndex: 10500 }}
@@ -75,6 +76,7 @@ export default function ConfirmDialog() {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.getElementById('modal-root')
   )
 }

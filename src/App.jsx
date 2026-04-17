@@ -311,14 +311,14 @@ function AppInner() {
           <Suspense fallback={<div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'50vh', gap:16 }}><div style={{ fontSize:40 }} className="loading-icon">🐄</div></div>}>
             <Routes>
               <Route path="/cows" element={<CowsPage search={searchQuery} />} />
-              <Route path="/milk" element={<MilkPage />} />
-              <Route path="/health" element={<HealthPage />} />
-              <Route path="/feed" element={<FeedPage />} />
-              <Route path="/breeding" element={<BreedingPage />} />
-              <Route path="/births" element={<BirthsPage />} />
-              <Route path="/finance" element={<FinancePage />} />
-              <Route path="/workers" element={<WorkersPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/milk" element={<MilkPage search={searchQuery} />} />
+              <Route path="/health" element={<HealthPage search={searchQuery} />} />
+              <Route path="/feed" element={<FeedPage search={searchQuery} />} />
+              <Route path="/breeding" element={<BreedingPage search={searchQuery} />} />
+              <Route path="/births" element={<BirthsPage search={searchQuery} />} />
+              <Route path="/finance" element={<FinancePage search={searchQuery} />} />
+              <Route path="/workers" element={<WorkersPage search={searchQuery} />} />
+              <Route path="/reports" element={<ReportsPage search={searchQuery} />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/dashboard" element={<DashboardPage onNav={handleNav} />} />

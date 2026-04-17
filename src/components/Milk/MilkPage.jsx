@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 import ActionMenu from '../Layout/ActionMenu'
 
@@ -14,7 +15,7 @@ const CowDisplay = ({ cow, fallbackName }) => {
   )
 }
 
-export default function MilkPage() {
+export default function MilkPage({ search = '' }) {
   const { milkRecords, addMilkRecord, deleteMilkRecord, cows, loading, showConfirm, classifyCow } = useFarm()
   const today = new Date().toISOString().split('T')[0]
 
@@ -45,9 +46,27 @@ export default function MilkPage() {
     return Object.values(map).slice(0, 7).reduce((s, v) => s + v, 0)
   }, [milkRecords])
 
+  const q = search.toLowerCase()
+  const filteredRecords = useMemo(() => {
+    if (!q) return milkRecords
+    return milkRecords.filter(m => {
+      const cow = cows.find(c => c.firestoreId === m.cowFirestoreId || c.id === m.cowId)
+      return (
+        m.cowId.toString().includes(q) ||
+        (cow?.name && cow.name.toLowerCase().includes(q)) ||
+        (m.notes && m.notes.toLowerCase().includes(q))
+      )
+    })
+  }, [milkRecords, q, cows])
+
   const milkingCows = useMemo(() => {
-    return cows.filter(c => classifyCow(c).includes('milk'))
-  }, [cows, classifyCow])
+    const list = cows.filter(c => classifyCow(c).includes('milk'))
+    if (!q) return list
+    return list.filter(c => 
+      c.id.toString().includes(q) || 
+      (c.name && c.name.toLowerCase().includes(q))
+    )
+  }, [cows, classifyCow, q])
 
   const save = async () => {
     if (!form.amount || parseInt(form.amount) <= 0) { alert('يرجى إدخال كمية صحيحة'); return }
@@ -105,7 +124,7 @@ export default function MilkPage() {
                 <table>
                   <thead><tr><th>التاريخ</th><th>الجلسة</th><th>البقرة</th><th>الكمية</th><th>إجراءات</th></tr></thead>
                   <tbody>
-                    {milkRecords.slice(0, renderLimit).map(m => (
+                    {filteredRecords.slice(0, renderLimit).map(m => (
                       <tr key={m.firestoreId}>
                         <td>{m.date}</td>
                         <td><span className={`badge ${m.session==='صباح'?'badge-orange':'badge-blue'}`}>{m.session}</span></td>
@@ -173,7 +192,7 @@ export default function MilkPage() {
       </div>
 
       {/* Modal */}
-      {open && (
+      {open && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setOpen(false) }}>
           <div className="modal">
             <div className="modal-header">
@@ -226,7 +245,8 @@ export default function MilkPage() {
               <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? '⏳...' : '💾 حفظ'}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
     </div>
   )

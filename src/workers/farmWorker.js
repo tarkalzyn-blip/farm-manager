@@ -47,7 +47,7 @@ self.onmessage = (event) => {
     if (cow.status === 'مريضة') tags.push('sick')
     
     const pendingInsem = inseminations.find(i =>
-      (i.cowFirestoreId === cow.firestoreId) && i.status === 'pending'
+      (i.cowFirestoreId === cow.firestoreId || i.cowId === cow.id) && i.status === 'pending'
     )
     
     let hasCheckOrFailed = false
@@ -61,7 +61,7 @@ self.onmessage = (event) => {
     let isDry = false
 
     const confirmedInsem = inseminations.find(i =>
-      (i.cowFirestoreId === cow.firestoreId) && i.status === 'confirmed'
+      (i.cowFirestoreId === cow.firestoreId || i.cowId === cow.id) && i.status === 'confirmed'
     )
     
     if (confirmedInsem) {

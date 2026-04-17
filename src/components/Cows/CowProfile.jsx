@@ -32,7 +32,7 @@ export default function CowProfile({ cow, onBack, onEdit, onViewCow }) {
   const cowBirths = births.filter(b => b.momFirestoreId ? b.momFirestoreId === cow.firestoreId : b.momId === cow.id)
   const cowHealth = healthRecords.filter(h => h.cowFirestoreId ? h.cowFirestoreId === cow.firestoreId : h.cowId === cow.id)
 
-  const activeInsem = cowInsem.find(i => i.status === 'pending' || i.status === 'confirmed')
+  const activeInsem = cowInsem.find(i => (i.status === 'pending' || i.status === 'confirmed'))
   const today = new Date().toISOString().split('T')[0]
 
   // ── إحصاءات ──
@@ -168,9 +168,9 @@ export default function CowProfile({ cow, onBack, onEdit, onViewCow }) {
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <button className="btn btn-outline btn-sm" onClick={onBack}>← رجوع</button>
           <div>
-            <div className="topbar-title">🐄 ملف البقرة</div>
+            <div className="topbar-title">🐄 {cow.name ? cow.name : 'ملف البقرة'}</div>
             <div className="topbar-sub">
-              <CowDisplay cow={cow} fallbackId={cow.id} hasHeatWatch={hasHeatWatch} /> | {cow.breed}
+              <CowDisplay cow={cow} fallbackId={cow.id} hasHeatWatch={hasHeatWatch} /> {cow.name && `| رقم ${cow.id}`} | {cow.breed}
             </div>
           </div>
         </div>
@@ -279,28 +279,41 @@ export default function CowProfile({ cow, onBack, onEdit, onViewCow }) {
                         <div className="detail-label">الأيام المضت</div>
                         <div className="detail-value" style={{ color:'var(--orange)' }}>{daysBetween(activeInsem.insemDate, today)} يوم</div>
                       </div>
-                      {activeInsem.status === 'confirmed' && (
-                        <>
-                          <div className="detail-box">
-                            <div className="detail-label">الولادة المتوقعة</div>
-                            <div className="detail-value" style={{ color:'var(--green)' }}>{addDays(activeInsem.insemDate, 280)}</div>
-                          </div>
-                          <div className="detail-box" style={{ gridColumn:'span 2' }}>
-                            <div className="detail-label">الشهر / الأيام المتبقية</div>
-                            <div>
-                              <div className="detail-value">
-                                شهر {Math.min(Math.ceil(daysBetween(activeInsem.insemDate, today)/30.44), 9)}/9 — {daysLeft(activeInsem.insemDate) < 0 ? `متأخرة: ${Math.abs(daysLeft(activeInsem.insemDate))} يوم` : `باقي ${daysLeft(activeInsem.insemDate)} يوم`}
-                              </div>
-                              <div className="progress" style={{ marginTop:6 }}>
-                                <div className="progress-bar" style={{
-                                  width: `${Math.min(daysBetween(activeInsem.insemDate, today)/280*100, 100)}%`,
-                                  background: 'var(--orange)'
-                                }} />
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      )}
+                      <div className="detail-box" style={{ gridColumn:'span 2' }}>
+                        <div className="detail-label">الحمل والولادة المتوقعة</div>
+                        <div>
+                          {(() => {
+                             const insemDays = daysBetween(activeInsem.insemDate, today);
+                             const progressVal = Math.min(100, Math.round((insemDays / 280) * 100));
+                             const months = Math.min(9, Math.ceil(insemDays / 30.44));
+                             const elapsedM = Math.floor(insemDays / 30.44);
+                             const remD = Math.floor(insemDays % 30.44);
+                             const remDays = daysLeft(activeInsem.insemDate);
+                             const labelText = activeInsem.status === 'confirmed' 
+                               ? `حمل مؤكد (شهر ${months}/9)` 
+                               : `ملقحة (يوم ${insemDays})`;
+                             
+                             return (
+                               <>
+                                 <div className="detail-value" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                   <span>{labelText} — {elapsedM > 0 ? `${elapsedM} شهر و ` : ''}{remD} يوم</span>
+                                   <span style={{ color: 'var(--orange)' }}>{progressVal}%</span>
+                                 </div>
+                                 <div className="progress">
+                                   <div className="progress-bar" style={{
+                                     width: `${progressVal}%`,
+                                     background: activeInsem.status === 'confirmed' ? 'var(--green)' : 'var(--orange)'
+                                   }} />
+                                 </div>
+                                 <div style={{ fontSize: 11, color: 'var(--subtext)', marginTop: 6, fontWeight: 700 }}>
+                                    تاريخ الولادة المتوقع: {addDays(activeInsem.insemDate, 280)} 
+                                    {remDays !== null && ` | ${remDays < 0 ? `⚠️ متأخرة ${Math.abs(remDays)} يوم` : `باقي ${remDays} يوم`}`}
+                                 </div>
+                               </>
+                             );
+                          })()}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 import ActionMenu from '../Layout/ActionMenu'
 
@@ -44,7 +45,7 @@ const PregnancyProgress = ({ days }) => {
   )
 }
 
-export default function BreedingPage() {
+export default function BreedingPage({ search = '' }) {
   const {
     cows, inseminations, addInsemination, confirmPregnancy, markInsemFailed,
     updateInsemination, deleteInsemination, registerBirth,
@@ -100,8 +101,21 @@ export default function BreedingPage() {
     })
   }
 
-  const sortedActive = sortInsems(activeInsems)
-  const sortedHistory = sortInsems(historyInsems)
+  const q = search.toLowerCase()
+  const filterBySearch = (list) => {
+    if (!q) return list
+    return list.filter(i => {
+      const cow = cows.find(c => c.firestoreId === i.cowFirestoreId || c.id === i.cowId)
+      return (
+        i.cowId.toString().includes(q) ||
+        (i.bullId && i.bullId.toLowerCase().includes(q)) ||
+        (cow?.name && cow.name.toLowerCase().includes(q))
+      )
+    })
+  }
+
+  const sortedActive = filterBySearch(sortInsems(activeInsems))
+  const sortedHistory = filterBySearch(sortInsems(historyInsems))
 
   // ── Open edit modal ──
   const openEdit = (insem) => {
@@ -438,7 +452,7 @@ export default function BreedingPage() {
       </div>
 
       {/* ══ Add/Edit Insemination Modal ══ */}
-      {insemOpen && (
+      {insemOpen && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setInsemOpen(false) }}>
           <div className="modal">
             <div className="modal-header">
@@ -516,11 +530,12 @@ export default function BreedingPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
 
       {/* ══ Birth Wizard ══ */}
-      {birthOpen && (
+      {birthOpen && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setBirthOpen(false) }}>
           <div className="modal modal-lg">
             <div className="modal-header">
@@ -603,7 +618,7 @@ export default function BreedingPage() {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label>رقم العجل ولون الكرت</label>
+                      <label>رقام العجل ولون الكرت</label>
                       <div style={{ display:'flex', gap:8 }}>
                         <input className="form-control" placeholder="تلقائي" value={bForm.calfId || ''}
                           onChange={e => setBForm(f=>({...f,calfId:e.target.value}))} style={{ flex:1 }} />
@@ -682,7 +697,8 @@ export default function BreedingPage() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
     </div>
   )

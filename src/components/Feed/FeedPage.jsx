@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 
 // ── أنواع العلف الأساسية ──────────────────────────
@@ -17,7 +18,7 @@ function loadLocal(key, def) {
 }
 function saveLocal(key, val) { localStorage.setItem(key, JSON.stringify(val)) }
 
-export default function FeedPage() {
+export default function FeedPage({ search = '' }) {
   const { showToast, showConfirm, addExpense, stats, currency }  = useFarm()
   const today = new Date().toISOString().split('T')[0]
   const cowCount = stats.totalCows || 1
@@ -33,6 +34,17 @@ export default function FeedPage() {
   const [form, setForm]   = useState({ feedId:'hay', amount:'', cost:'', date:today, party:'', notes:'' })
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'history' | 'plan'
+
+  const q = search.toLowerCase()
+  const filteredHistory = useMemo(() => {
+    if (!q) return history
+    return history.filter(tx => 
+      (tx.feedName && tx.feedName.toLowerCase().includes(q)) ||
+      (tx.party && tx.party.toLowerCase().includes(q)) ||
+      (tx.notes && tx.notes.toLowerCase().includes(q)) ||
+      (tx.date && tx.date.includes(q))
+    )
+  }, [history, q])
 
   // ── حساب المخزون الحالي ──
   const currentStock = useMemo(() => {
@@ -359,7 +371,7 @@ export default function FeedPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {history.map(tx => {
+                    {filteredHistory.map(tx => {
                       const ft = feedTypes.find(f => f.id === tx.feedId)
                       return (
                         <tr key={tx.id}>
@@ -484,7 +496,7 @@ export default function FeedPage() {
       </div>
 
       {/* ══════════════ Modal: وارد / صرف ══════════════ */}
-      {(modal === 'in' || modal === 'out') && (
+      {(modal === 'in' || modal === 'out') && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setModal(null) }}>
           <div className="modal">
             <div className="modal-header">
@@ -563,11 +575,12 @@ export default function FeedPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
 
       {/* ══════════════ Modal: إدارة أنواع العلف ══════════════ */}
-      {modal === 'manage_types' && (
+      {modal === 'manage_types' && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setModal(null) }}>
           <div className="modal modal-lg">
             <div className="modal-header">
@@ -633,7 +646,8 @@ export default function FeedPage() {
               <button className="btn btn-success" onClick={() => setModal(null)}>✅ تم</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
     </div>
   )

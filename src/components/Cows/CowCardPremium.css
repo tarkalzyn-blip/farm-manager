@@ -1,0 +1,318 @@
+/* ═══════════════════════════════════════════════
+   CowCard Premium — Farm Skeuomorphic Design
+   ═══════════════════════════════════════════════ */
+
+.fc-card {
+  background: #f5ead6;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(90, 55, 20, 0.2), 0 1px 4px rgba(0,0,0,0.1);
+  border: 1.5px solid #d4b483;
+  direction: rtl;
+  font-family: inherit;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── HEADER BAR ─── */
+.fc-header {
+  background: linear-gradient(180deg, #7a4d1e 0%, #5c3310 100%);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  /* Farm silhouette background */
+  background-image: 
+    linear-gradient(180deg, #7a4d1e 0%, #5c3310 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 60'%3E%3C/svg%3E");
+}
+
+.fc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fc-search-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, #d4d4d4);
+  border: 2px solid #a0754a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.6);
+  transition: transform 0.1s;
+  flex-shrink: 0;
+}
+.fc-search-btn:active { transform: scale(0.94); }
+
+.fc-tag-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: linear-gradient(135deg, #c8922a, #a06820);
+  border: 2px solid #7a4d1e;
+  border-radius: 10px;
+  padding: 5px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.2);
+}
+.fc-tag-badge.blue {
+  background: linear-gradient(135deg, #4a90c4, #2769a0);
+  border-color: #1d5080;
+}
+.fc-tag-num {
+  font-size: 22px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  line-height: 1;
+}
+.fc-tag-square {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: #5c3310;
+  border: 1.5px solid rgba(255,255,255,0.3);
+}
+.fc-tag-badge.blue .fc-tag-square {
+  background: #1d5080;
+}
+
+.fc-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fc-header-id {
+  font-size: 26px;
+  font-weight: 900;
+  color: #ffe8a0;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  font-style: italic;
+}
+.fc-header-icons {
+  display: flex;
+  gap: 4px;
+  font-size: 28px;
+}
+
+/* ─── FARM SILHOUETTE IN HEADER ─── */
+.fc-header-silhouette {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  opacity: 0.15;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 60' fill='%23fff'%3E%3Cellipse cx='100' cy='55' rx='55' ry='18'/%3E%3Cellipse cx='250' cy='52' rx='65' ry='20'/%3E%3Cellipse cx='430' cy='53' rx='60' ry='19'/%3E%3Cellipse cx='620' cy='51' rx='70' ry='21'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/* ─── STATUS BADGES ROW ─── */
+.fc-badges {
+  padding: 12px 14px 6px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25), inset 0 1px 2px rgba(255,255,255,0.2);
+  flex: 1;
+  justify-content: center;
+}
+.fc-badge.green {
+  background: linear-gradient(135deg, #4a8a52, #2e5c36);
+  border: 1.5px solid #25482b;
+}
+.fc-badge.orange {
+  background: linear-gradient(135deg, #c7622a, #a04520);
+  border: 1.5px solid #7a3015;
+}
+.fc-badge.blue {
+  background: linear-gradient(135deg, #3a7ab5, #235080);
+  border: 1.5px solid #1a3d63;
+}
+.fc-badge.gray {
+  background: linear-gradient(135deg, #7a7a7a, #555);
+  border: 1.5px solid #444;
+}
+.fc-badge.purple {
+  background: linear-gradient(135deg, #7c4aad, #5a2d8a);
+  border: 1.5px solid #441e6c;
+}
+.fc-badge.red {
+  background: linear-gradient(135deg, #b83232, #8c2020);
+  border: 1.5px solid #6f1818;
+}
+
+/* ─── INFO ROWS ─── */
+.fc-body {
+  padding: 10px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.fc-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20px;
+  font-size: 14px;
+  color: #4a2e10;
+  align-items: center;
+}
+
+.fc-row-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.fc-row-item strong {
+  font-weight: 800;
+  color: #2e1806;
+}
+.fc-row-item .emoji {
+  font-size: 16px;
+}
+
+/* ─── PROGRESS BAR SECTION ─── */
+.fc-progress-section {
+  padding: 8px 16px 10px;
+  position: relative;
+}
+
+.fc-progress-label {
+  text-align: right;
+  font-size: 14px;
+  color: #5a3a18;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.fc-progress-track-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.fc-progress-pct-badge {
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4a017, #a07010);
+  border: 3px solid #7a4d1e;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.4), inset 0 1px 3px rgba(255,255,255,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.fc-progress-bar-bg {
+  flex: 1;
+  height: 16px;
+  background: #e0cfb4;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid #c0a882;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+  margin-right: 44px;
+}
+
+.fc-progress-bar-fill {
+  height: 100%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #d4791a, #f0b038, #d4791a);
+  transition: width 0.6s ease;
+  box-shadow: 0 1px 4px rgba(200,100,20,0.4);
+}
+
+.fc-progress-desc {
+  text-align: right;
+  font-size: 13px;
+  color: #6a4020;
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+/* ─── FOOTER ─── */
+.fc-footer {
+  position: relative;
+  padding: 12px 14px 14px;
+  border-top: 1.5px solid #d4b483;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+/* Farm silhouette watermark in footer */
+.fc-footer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 80' fill='%23a0784a'%3E%3Cpath d='M0,60 Q50,30 100,50 Q150,70 200,45 Q250,20 300,55 Q350,75 400,50 Q450,25 500,55 Q550,75 600,48 Q650,22 700,52 Q750,72 800,50 L800,80 L0,80Z' opacity='0.12'/%3E%3Ccircle cx='120' cy='55' r='16' opacity='0.08'/%3E%3Ccircle cx='300' cy='50' r='20' opacity='0.08'/%3E%3Ccircle cx='500' cy='53' r='18' opacity='0.08'/%3E%3Ccircle cx='680' cy='48' r='22' opacity='0.08'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: bottom;
+  pointer-events: none;
+}
+
+.fc-btn {
+  flex: 1;
+  padding: 11px 10px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.1s, box-shadow 0.1s;
+  position: relative;
+  z-index: 1;
+}
+.fc-btn:active {
+  transform: scale(0.96);
+}
+
+.fc-btn-primary {
+  background: linear-gradient(180deg, #4a8a52, #2e5c36);
+  color: #fff;
+  border: 1.5px solid #23472a;
+  box-shadow: 0 3px 8px rgba(46,92,54,0.4), inset 0 1px 2px rgba(255,255,255,0.2);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+
+.fc-btn-outline {
+  background: linear-gradient(180deg, #f5ead6, #e8d8bb);
+  color: #5a3a18;
+  border: 1.5px solid #c0a882;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 2px rgba(255,255,255,0.5);
+}

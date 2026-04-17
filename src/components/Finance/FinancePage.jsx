@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 import CowProfile from '../Cows/CowProfile'
 import ActionMenu from '../Layout/ActionMenu'
@@ -227,7 +228,7 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {rvOpen && (
+      {rvOpen && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setRvOpen(false) }}>
           <div className="modal">
             <div className="modal-header"><span className="modal-title">💵 إضافة إيراد</span><button className="modal-close" onClick={() => setRvOpen(false)}>✕</button></div>
@@ -285,10 +286,11 @@ export default function FinancePage() {
             </div>
             <div className="modal-footer"><button className="btn btn-outline" onClick={() => setRvOpen(false)}>إلغاء</button><button className="btn btn-success" onClick={saveRv} disabled={saving}>{saving?'⏳...':'✅ إضافة'}</button></div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
 
-      {exOpen && (
+      {exOpen && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setExOpen(false) }}>
           <div className="modal">
             <div className="modal-header"><span className="modal-title">💸 إضافة مصروف</span><button className="modal-close" onClick={() => setExOpen(false)}>✕</button></div>
@@ -305,7 +307,8 @@ export default function FinancePage() {
             </div>
             <div className="modal-footer"><button className="btn btn-outline" onClick={() => setExOpen(false)}>إلغاء</button><button className="btn btn-danger" onClick={saveEx} disabled={saving}>{saving?'⏳...':'➖ إضافة'}</button></div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
     </div>
   )

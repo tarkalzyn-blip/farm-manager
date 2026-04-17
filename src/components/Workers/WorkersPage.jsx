@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 
-export default function WorkersPage() {
+export default function WorkersPage({ search = '' }) {
   const { workers, addWorker, toggleWorkerAttendance, deleteWorker, loading, showConfirm, currency } = useFarm()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -10,6 +11,16 @@ export default function WorkersPage() {
   const present     = workers.filter(w => w.present).length
   const absent      = workers.filter(w => !w.present).length
   const totalSalary = workers.reduce((s, w) => s + (parseInt(w.salary)||0), 0)
+
+  const q = search.toLowerCase()
+  const filteredWorkers = useMemo(() => {
+    if (!q) return workers
+    return workers.filter(w => 
+      (w.name && w.name.toLowerCase().includes(q)) ||
+      (w.role && w.role.toLowerCase().includes(q)) ||
+      (w.phone && w.phone.includes(q))
+    )
+  }, [workers, q])
 
   // ── Progressive Rendering ──
   const [renderLimit, setRenderLimit] = useState(0)
@@ -98,7 +109,7 @@ export default function WorkersPage() {
           </div>
         ) : (
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:16 }}>
-            {workers.slice(0, renderLimit).map(w => (
+            {filteredWorkers.slice(0, renderLimit).map(w => (
               <div key={w.firestoreId} className="card" style={{
                 border: `2px solid ${w.present ? 'var(--green)' : 'var(--border)'}`,
                 transition: 'border-color 0.3s',
@@ -172,7 +183,7 @@ export default function WorkersPage() {
       </div>
 
       {/* Add Worker Modal */}
-      {open && (
+      {open && createPortal(
         <div className="modal-overlay open" onClick={e => { if(e.target===e.currentTarget) setOpen(false) }}>
           <div className="modal">
             <div className="modal-header">
@@ -214,7 +225,8 @@ export default function WorkersPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
     </div>
   )

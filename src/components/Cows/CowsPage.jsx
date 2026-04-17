@@ -63,12 +63,17 @@ function TagStrip({ tags, small }) {
 export default function CowsPage({ search: globalSearch }) {
   const {
     cows, inseminations, deleteCow, loading, formatAge,
-    showConfirm, daysBetween, daysLeft, classifyCow, dryPeriodDays, stats
+    showConfirm, daysBetween, daysLeft, classifyCow, dryPeriodDays, stats, showCowName
   } = useFarm()
 
   const [view, setView] = useState(() => localStorage.getItem('cowsView') || 'table')
-  const [internalSearch, setInternalSearch] = useState('')
-  const search = globalSearch !== undefined ? globalSearch : internalSearch
+  const [search, setSearch] = useState(globalSearch || '')
+  
+  // Sync with global topbar search
+  useEffect(() => {
+    if (globalSearch !== undefined) setSearch(globalSearch)
+  }, [globalSearch])
+
   const [filterTag, setFilterTag] = useState(() => localStorage.getItem('cowsFilterTag') || '')
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('cowsSortBy') || 'default')
 
@@ -99,7 +104,9 @@ export default function CowsPage({ search: globalSearch }) {
   const filtered = useMemo(() => {
     return cows.filter(c => {
       const q = search.toLowerCase()
-      const matchQ = !q || c.id?.toLowerCase().includes(q) || c.breed?.toLowerCase().includes(q)
+      const matchQ = c.id.toString().includes(q) ||
+        (c.name && c.name.toLowerCase().includes(q)) ||
+        c.breed.toLowerCase().includes(q)
       const tags = classifyCow(c)
       const matchTag = !filterTag || tags.includes(filterTag)
       return matchQ && matchTag
@@ -108,7 +115,7 @@ export default function CowsPage({ search: globalSearch }) {
 
   const getCowInsemDays = (c) => {
     const activeInsem = inseminations.find(i =>
-      (i.cowFirestoreId === c.firestoreId) &&
+      (i.cowFirestoreId === c.firestoreId || i.cowId === c.id) &&
       (i.status === 'pending' || i.status === 'confirmed')
     )
     return activeInsem ? daysBetween(activeInsem.insemDate, today) : -1
@@ -216,7 +223,7 @@ export default function CowsPage({ search: globalSearch }) {
           <div className="topbar-sub">سجل كامل للقطيع — نظام الوسوم المتعددة</div>
         </div>
         <div className="topbar-actions">
-          <input className="search-input" placeholder="🔍 بحث بالرقم أو السلالة..."
+          <input className="search-input" placeholder="🔍 ابحث بالاسم، الرقم، السلالة..."
             value={search} onChange={e => setSearch(e.target.value)} />
           <select className="form-control" style={{ width: 175 }} value={filterTag} onChange={e => setFilterTag(e.target.value)}>
             <option value="">جميع الحالات</option>
@@ -384,20 +391,31 @@ export default function CowsPage({ search: globalSearch }) {
 
                         {/* 4. الحمل / أيام ما بعد الولادة */}
                         <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                          {insemDays > 0
-                            ? <PregnancyProgress days={insemDays} />
-                            : c.lastBirthDate
-                              ? (
-                                <div style={{ width: 100, textAlign: 'center', display: 'inline-block' }}>
-                                  <div style={{ fontSize: 11, marginBottom: 1, color: 'var(--orange)', fontWeight: 700 }}>منذ الولادة</div>
-                                  <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--orange)', margin: '2px 0' }}>
-                                    {getCowBirthDays(c)} يوم
-                                  </div>
-                                  <div style={{ fontSize: 9, color: '#aaa', fontWeight: 600 }}>بدون تلقيح</div>
-                                </div>
-                              )
-                              : <span style={{ color: 'var(--subtext)' }}>—</span>
-                          }
+                          {insemDays >= 0 ? (
+                            <div style={{ width: 110, textAlign: 'center', display: 'inline-block' }}>
+                              {(() => {
+                                const progressVal = Math.min(100, Math.round((insemDays / 280) * 100));
+                                const months = Math.min(9, Math.ceil(insemDays / 30.44));
+                                const labelText = (detailedTags.some(t => t.tag === 'pregnant') || detailedTags.some(t => t.tag === 'dry'))
+                                  ? `حامل: ${months}/9` 
+                                  : `ملقحة: ${insemDays}ي`;
+                                return (
+                                  <>
+                                    <div style={{ fontSize: 11, marginBottom: 1, color: 'var(--accent)', fontWeight: 700 }}>{labelText}</div>
+                                    <div className="progress" style={{ height: 6, background: '#eee', borderRadius: 3, overflow: 'hidden' }}>
+                                      <div className="progress-fill" style={{ width: `${progressVal}%`, background: 'var(--accent)', height: '100%' }} />
+                                    </div>
+                                    <div style={{ fontSize: 9, color: 'var(--subtext)', marginTop: 2 }}>{progressVal}%</div>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          ) : c.lastBirthDate ? (
+                            <div style={{ width: 100, textAlign: 'center', display: 'inline-block' }}>
+                              <div style={{ fontSize: 11, marginBottom: 1, color: 'var(--orange)', fontWeight: 700 }}>منذ الولادة</div>
+                              <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--orange)', margin: '2px 0' }}>{getCowBirthDays(c)} يوم</div>
+                            </div>
+                          ) : <span style={{ color: 'var(--subtext)' }}>—</span>}
                         </td>
 
                         {/* 5. إنتاج/يوم */}
@@ -495,9 +513,11 @@ export default function CowsPage({ search: globalSearch }) {
               const idBorderColor = hasHeatWatch ? '#ff0000' : idColor
 
               /* Cow label */
-              const cowLabel = isCalf
-                ? (rawTags.includes('maleCalf') ? `عجلٌ رقم ${c.id}` : `عجلّة رقم ${c.id}`)
-                : `البقرة رقم ${c.id}`
+              const cowLabel = c.name 
+                ? c.name 
+                : isCalf
+                  ? (rawTags.includes('maleCalf') ? `عجلٌ رقم ${c.id}` : `عجلّة رقم ${c.id}`)
+                  : `البقرة رقم ${c.id}`
 
               const cowIconMap = {
                 maleCalf: '🐂', calf: '🐣', dry: '🌿', pregnant: '🤰',
@@ -540,14 +560,16 @@ export default function CowsPage({ search: globalSearch }) {
                           <span style={{ fontSize: 10 }}>{alertBadge.text}</span>
                         </div>
                       )}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: showCowName ? 6 : 0 }}>
                         <span style={{ fontSize: 22 }}>{cowIcon}</span>
-                        <strong
-                          style={{ fontSize: 17, fontWeight: 900, color: 'var(--text)', cursor: 'pointer' }}
-                          onClick={() => setProfileCow(c)}
-                        >
-                          {cowLabel}
-                        </strong>
+                        {showCowName && (
+                          <strong
+                            style={{ fontSize: 17, fontWeight: 900, color: 'var(--text)', cursor: 'pointer' }}
+                            onClick={() => setProfileCow(c)}
+                          >
+                            {cowLabel}
+                          </strong>
+                        )}
                       </div>
                     </div>
 
@@ -624,34 +646,41 @@ export default function CowsPage({ search: globalSearch }) {
                       </div>
                     ) : null}
 
-                    {/* Pregnancy Progress Bar */}
-                    {isPregn && insemDays > 0 && (
+                    {/* Pregnancy / Insemination Progress Bar */}
+                    {insemDays >= 0 && (
                       <div style={{ marginTop: 6, marginBottom: 4 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
-                          <span style={{ color: accent }}>مدة الحمل: ({insemDays}) يوم</span>
-                          <span style={{ color: accent, fontWeight: 900, fontSize: 13 }}>{progress}%</span>
-                        </div>
-                        <div style={{ height: 10, background: '#eee', borderRadius: 5, overflow: 'hidden' }}>
-                          <div style={{
-                            height: '100%', width: `${progress}%`,
-                            background: `linear-gradient(90deg, ${accent}, ${accent}bb)`,
-                            borderRadius: 5, transition: 'width 0.5s ease',
-                          }} />
-                        </div>
-                        {daysRemaining !== null && (
-                          <div style={{ fontSize: 11, color: 'var(--subtext)', marginTop: 4, textAlign: 'left', fontWeight: 700 }}>
-                            {daysRemaining < 0
-                              ? `⚠️ متأخرة ${Math.abs(daysRemaining)} يوم`
-                              : `متبقي ${daysRemaining} أيام للولادة`}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Check insem days */}
-                    {isCheck && insemDays > 0 && (
-                      <div style={{ fontSize: 12, color: '#b8860b', marginTop: 4, fontWeight: 700 }}>
-                        ⏱ يوم التلقيح: <strong>{insemDays}</strong> — الفحص خلال {Math.max(0, 23 - insemDays)} يوم
+                        {(() => {
+                           const progressVal = Math.min(100, Math.round((insemDays / 280) * 100));
+                           const months = Math.min(9, Math.ceil(insemDays / 30.44));
+                           const elapsedM = Math.floor(insemDays / 30.44);
+                           const remD = Math.floor(insemDays % 30.44);
+                           const labelText = isPregn 
+                             ? `حامل: شهر ${months}/9` 
+                             : (insemDays < 23 
+                                ? `ملقحة: بانتظار فحص (${insemDays} يوم)`
+                                : `ملقحة: بحاجة فحص (${insemDays} يوم)`);
+                           
+                           return (
+                             <>
+                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
+                                 <span style={{ color: accent }}>{labelText}</span>
+                                 <span style={{ color: accent, fontWeight: 900, fontSize: 13 }}>{progressVal}%</span>
+                               </div>
+                               <div className="progress" style={{ height: 10, background: '#eee', borderRadius: 5, overflow: 'hidden' }}>
+                                 <div 
+                                   className="progress-fill"
+                                   style={{
+                                     width: `${progressVal}%`,
+                                     background: `linear-gradient(90deg, ${accent}, ${accent}bb)`,
+                                     borderRadius: 5, transition: 'width 0.5s ease',
+                                   }} />
+                               </div>
+                               <div style={{ fontSize: 10, color: 'var(--subtext)', marginTop: 4, textAlign: 'left', fontWeight: 700 }}>
+                                 {elapsedM > 0 ? `${elapsedM} شهر و ` : ''}{remD} يوم {daysRemaining !== null ? ` | باقي ${daysRemaining} يوم للولادة` : ''}
+                               </div>
+                             </>
+                           );
+                        })()}
                       </div>
                     )}
 

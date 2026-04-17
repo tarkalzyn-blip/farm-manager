@@ -1,312 +1,210 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useFarm } from '../../context/FarmContext'
 import ActionMenu from '../Layout/ActionMenu'
 
-export default function BirthsPage() {
-  const {
-    births, cows, inseminations,
-    registerBirth, deleteBirth, daysLeft, addDays,
-    loading, formatAge, showConfirm
-  } = useFarm()
+const formatAge = (date) => {
+  if (!date) return '—'
+  const diff = new Date() - new Date(date)
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  if (days < 30) return `${days} يوم`
+  if (days < 365) return `${Math.floor(days / 30)} شهر`
+  return `${(days / 365).toFixed(1)} سنة`
+}
 
-  const today = new Date().toISOString().split('T')[0]
-
-  // ── Birth wizard state ──
-  const [birthOpen, setBirthOpen] = useState(false)
-  const [birthCow, setBirthCow]   = useState(null)
+export default function BirthsPage({ search }) {
+  const { cows, births, saveBirthRecord, deleteBirthRecord, inseminations } = useFarm()
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   
-  // ── Progressive Rendering for smooth animations ──
-  const [renderLimit, setRenderLimit] = useState(0)
-
-  useEffect(() => {
-    if (!loading.births) {
-      const t1 = setTimeout(() => setRenderLimit(10), 50)
-      const t2 = setTimeout(() => setRenderLimit(9999), 350)
-      return () => { clearTimeout(t1); clearTimeout(t2) }
-    }
-  }, [loading.births])
-  const [bStep, setBStep]         = useState(1)
-  const [saving, setSaving]       = useState(false)
+  // Birth Wizard State
+  const [birthOpen, setBirthOpen] = useState(false)
+  const [birthCow, setBirthCow] = useState(null)
+  const [bStep, setBStep] = useState(1)
   const [bForm, setBForm] = useState({
-    momId: '', birthDate: today, birthType: 'طبيعية', momStatusAfter: 'سليمة',
-    momMilkAfter: '', calfGender: 'أنثى', 
-    calfStatus: 'سليم', calfId: '', calfTagColor: 'أصفر',
-    calfPlan: 'للقطيع', careNotes: '', count: 1, insemFirestoreId: ''
+    birthDate: new Date().toISOString().split('T')[0],
+    birthType: 'طبيعية',
+    momStatusAfter: 'سليمة',
+    momMilkAfter: '',
+    calfGender: 'أنثى',
+    calfId: '',
+    calfTagColor: 'أصفر',
+    calfStatus: 'سليم',
+    calfPlan: 'للقطيع',
+    count: 1,
+    careNotes: '',
+    momSearchTerm: '',
+    momId: '',
+    insemFirestoreId: '',
   })
 
-  // ── Overdue births (confirmed inseminations past due date) ──
-  const overdueInsems = inseminations
-    .filter(i => i.status === 'confirmed')
-    .map(i => ({ ...i, dl: daysLeft(i.insemDate) }))
-    .filter(i => i.dl <= 0)
-    .sort((a, b) => a.dl - b.dl)
+  useEffect(() => {
+    if (births) setLoading(false)
+  }, [births])
 
-  // ── Open birth wizard ──
-  const openBirth = (insem = null) => {
-    setBirthCow(insem)
-    if (insem) {
-      const cow = cows.find(c => c.id === insem.cowId || c.firestoreId === insem.cowFirestoreId)
-      setBForm(f => ({
-        ...f,
-        momId: cow?.firestoreId || insem.cowId,
-        momMilkAfter: cow?.milk || '',
-        insemFirestoreId: insem.firestoreId,
-        momSearchTerm: cow ? `${cow.tagColor === 'أزرق' ? '🟦' : '🟨'} ${cow.id}` : `${insem.cowId}`
-      }))
-    } else {
-      setBForm({
-        momId: '', birthDate: today, birthType: 'طبيعية', momStatusAfter: 'سليمة',
-        momMilkAfter: '', calfGender: 'أنثى',
-        calfStatus: 'سليم', calfId: '', calfTagColor: 'أصفر',
-        calfPlan: 'للقطيع', careNotes: '', count: 1, insemFirestoreId: '', momSearchTerm: ''
-      })
-    }
-    setBirthOpen(true)
+  const filteredBirths = useMemo(() => {
+    if (!search) return births
+    const s = search.toLowerCase()
+    return births.filter(b => 
+      b.momId?.toLowerCase().includes(s) || 
+      b.calfId?.toLowerCase().includes(s) ||
+      b.plan?.toLowerCase().includes(s)
+    )
+  }, [births, search])
+
+  const openBirth = (cow = null) => {
+    setBirthCow(cow)
     setBStep(1)
+    setBForm({
+      birthDate: new Date().toISOString().split('T')[0],
+      birthType: 'طبيعية',
+      momStatusAfter: 'سليمة',
+      momMilkAfter: cow ? cow.milk : '',
+      calfGender: 'أنثى',
+      calfId: '',
+      calfTagColor: 'أصفر',
+      calfStatus: 'سليم',
+      calfPlan: 'للقطيع',
+      count: 1,
+      careNotes: '',
+      momSearchTerm: cow ? `${cow.tagColor === 'أزرق' ? '🟦' : '🟨'} ${cow.id}` : '',
+      momId: cow ? cow.firestoreId : '',
+      insemFirestoreId: '',
+    })
+    setBirthOpen(true)
   }
 
   const closeBirth = () => {
     setBirthOpen(false)
     setBirthCow(null)
+    setBStep(1)
   }
 
   const saveBirth = async () => {
-    showConfirm({
-      title: 'تسجيل ولادة',
-      message: `تأكيد تسجيل الولادة؟`,
-      type: 'primary',
-      icon: '🐣',
-      confirmLabel: '🐣 تأكيد',
-      onConfirm: async () => {
-        setSaving(true)
-        const mom = cows.find(c => c.firestoreId === bForm.momId)
-        await registerBirth({
-          ...bForm,
-          momFirestoreId: bForm.momId,
-          momId: mom?.id || birthCow?.cowId || '—',
-          momMilkAfter: parseInt(bForm.momMilkAfter) || 0,
-        })
-        closeBirth()
-        setSaving(false)
+    setSaving(true)
+    try {
+      const payload = {
+        ...bForm,
+        momId: birthCow ? birthCow.id : cows.find(c => c.firestoreId === bForm.momId)?.id,
+        momFirestoreId: birthCow ? birthCow.firestoreId : bForm.momId,
       }
-    })
+      await saveBirthRecord(payload)
+      closeBirth()
+    } catch (e) {
+      console.error(e)
+      alert('خطأ أثناء الحفظ')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleDelete = (b) => {
-    showConfirm({
-      title: 'حذف سجل الولادة',
-      message: `هل أنت متأكد من حذف سجل ولادة العجل رقم "${b.calfId}"؟`,
-      detail: 'ملاحظة: هذا سيحذف السجل فقط، ولن يحذف العجل إذا تمت إضافته كبقرة للقطيع.',
-      icon: '🗑',
-      confirmLabel: '🗑 نعم، احذف السجل',
-      onConfirm: async () => {
-        await deleteBirth(b.firestoreId, b.calfId)
-      }
-    })
+  const handleDelete = async (b) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا السجل؟ لن يتم حذف البقرة المولودة تلقائياً.')) {
+      await deleteBirthRecord(b.firestoreId)
+    }
   }
 
-  // ── Stats ──
-  const females = births.filter(b => b.calfGender === 'أنثى')
-  const males   = births.filter(b => b.calfGender === 'ذكر')
-  const healthy = births.filter(b => b.calfStatus === 'سليم' || b.calfStatus === 'سليمة')
-  const care    = births.filter(b => b.calfStatus === 'رعاية خاصة' || b.calfStatus === 'يحتاج رعاية')
+  const daysLeft = (d) => {
+    if (!d) return 0
+    const diff = new Date(d) - new Date()
+    return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 283
+  }
 
   return (
-    <div>
-      {/* ── Topbar ── */}
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">🐣 الولادات</div>
-          <div className="topbar-sub">سجل كامل للعجول والعجلات</div>
+    <div className="page-container">
+      <div className="page-header">
+        <div className="header-title">
+          <h1>🐣 سجلات الولادة</h1>
+          <p>إدارة المواليد الجدد ومتابعة صحة الأمهات</p>
         </div>
-        <div className="topbar-actions">
-          <button className="btn btn-success" onClick={() => openBirth()}>
-            ➕ تسجيل ولادة
-          </button>
-        </div>
+        <button className="btn btn-primary" onClick={() => openBirth()}>
+          <span>➕ تسجيل ولادة جيدة</span>
+        </button>
       </div>
 
-      <div className="content">
-
-        {/* ── Overdue Births Alert ── */}
-        {overdueInsems.length > 0 && (
-          <div style={{
-            background: 'linear-gradient(135deg, #fde8e8, #fff5f5)',
-            border: '2px solid var(--red)',
-            borderRadius: 12,
-            padding: '16px 20px',
-            marginBottom: 20,
-          }}>
-            <div style={{ fontWeight: 800, color: 'var(--red)', fontSize: 15, marginBottom: 10 }}>
-              ⚠️ ولادات متأخرة — يرجى التسجيل فوراً ({overdueInsems.length})
+      <div className="card">
+        <div className="card-body" style={{ padding: 0 }}>
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center' }}>⏳ جاري التحميل...</div>
+          ) : filteredBirths.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--subtext)' }}>
+              📭 لا توجد سجلات ولادة حالياً
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {overdueInsems.map(i => (
-                <div key={i.firestoreId} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  background: '#fff', borderRadius: 8, padding: '10px 14px',
-                  border: '1px solid #fca5a5'
-                }}>
-                  <span style={{ fontSize: 22 }}>🐄</span>
-                  <div style={{ flex: 1 }}>
-                    <strong>#{i.cowId || cows.find(c => c.firestoreId === i.cowFirestoreId)?.id || '—'}</strong>
-                    <span style={{ color: 'var(--red)', fontWeight: 700, fontSize: 13, marginRight: 10 }}>
-                      — متأخرة {Math.abs(i.dl)} يوم
-                    </span>
-                    <div style={{ fontSize: 11, color: 'var(--subtext)', marginTop: 2 }}>
-                      تاريخ التلقيح: {i.insemDate} | موعد الولادة المقدر: {addDays(i.insemDate, 280)}
-                    </div>
-                  </div>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => openBirth(i)}
-                  >
-                    🐣 سجّل الآن
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Stats ── */}
-        <div className="stats-grid-5">
-          <div className="stat-card">
-            <div className="stat-icon">🐣</div>
-            <div className="stat-value" style={{ color: 'var(--accent)' }}>{births.length}</div>
-            <div className="stat-label">الإجمالي</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">🐄</div>
-            <div className="stat-value" style={{ color: 'var(--green)' }}>{females.length}</div>
-            <div className="stat-label">عجلات</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">🐂</div>
-            <div className="stat-value" style={{ color: 'var(--blue)' }}>{males.length}</div>
-            <div className="stat-label">عجول</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">✅</div>
-            <div className="stat-value" style={{ color: 'var(--green)' }}>{healthy.length}</div>
-            <div className="stat-label">سليمة</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">⚠️</div>
-            <div className="stat-value" style={{ color: 'var(--orange)' }}>{care.length}</div>
-            <div className="stat-label">رعاية خاصة</div>
-          </div>
-        </div>
-
-        {/* ── Births Table ── */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">📋 جميع الولادات ({births.length})</span>
-          </div>
-          <div style={{ padding: 0, overflowX: 'auto' }}>
-            {loading.births
-              ? <div className="loading-spinner" style={{ padding: 30 }}><div className="loading-icon">🐣</div></div>
-              : births.length === 0
-              ? (
-                <div className="empty-state">
-                  <div className="empty-icon">🐣</div>
-                  <div className="empty-title">لا توجد ولادات مسجلة</div>
-                  <button className="btn btn-success btn-sm" onClick={() => openBirth()}>
-                    ➕ تسجيل أول ولادة
-                  </button>
-                </div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>رقم العجل</th>
-                      <th>الأم</th>
-                      <th>تاريخ الولادة</th>
-                      <th>العمر</th>
-                      <th>الجنس</th>
-                      <th>نوع الولادة</th>
-                      <th>الحالة</th>
-                      <th>المقرر</th>
-                      <th style={{ width: 50 }}>إجراءات</th>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>الأم</th>
+                    <th>التاريخ</th>
+                    <th>العمر الحالي</th>
+                    <th>الجنس</th>
+                    <th>نوع الولادة</th>
+                    <th>حالة المولود</th>
+                    <th>المقرر</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredBirths.map(b => {
+                    const mom = cows.find(c => c.firestoreId === b.momFirestoreId)
+                    const momColor = mom?.tagColor || 'أصفر'
+                    return (
+                    <tr key={b.firestoreId}>
+                      <td style={{ fontWeight: 700 }}>
+                        {b.momFirestoreId ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 16 }}>{momColor === 'أزرق' ? '🟦' : '🟨'}</span>
+                            <span>{b.momId}</span>
+                          </div>
+                        ) : (
+                          <strong style={{
+                            background: momColor === 'أزرق' ? 'var(--blue-light)' : 'var(--accent-light)',
+                            padding: '2px 6px', borderRadius: 4,
+                            fontWeight: 800
+                          }}>{momColor === 'أزرق' ? '🟦' : '🟨'} {b.momId}</strong>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 12 }}>{b.birthDate}</td>
+                      <td style={{ fontSize: 12, color: 'var(--subtext)' }}>{formatAge(b.birthDate)}</td>
+                      <td>
+                        <span className={`badge ${b.calfGender === 'أنثى' ? 'badge-green' : 'badge-blue'}`}>
+                          {b.calfGender} {b.calfGender === 'أنثى' ? '🐄' : '🐂'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${b.birthType === 'طبيعية' ? 'badge-gray' : b.birthType === 'قيصرية' ? 'badge-orange' : 'badge-red'}`}>
+                          {b.birthType}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${b.calfStatus === 'سليم' || b.calfStatus === 'سليمة' ? 'badge-green' : b.calfStatus === 'رعاية خاصة' || b.calfStatus === 'يحتاج رعاية' ? 'badge-orange' : 'badge-red'}`}>
+                          {b.calfStatus}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${b.plan === 'للقطيع' || b.plan === 'أضيفت للقطيع' ? 'badge-blue' : b.plan === 'بيع' || b.plan === 'مباع' ? 'badge-red' : 'badge-orange'}`}>
+                          {b.plan}
+                        </span>
+                      </td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <ActionMenu
+                          options={[
+                            { label: 'حذف السجل', icon: '🗑', danger: true, onClick: () => handleDelete(b) }
+                          ]}
+                        />
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {births.slice(0, renderLimit).map((b, i) => {
-                      const mom = cows.find(c => c.firestoreId === b.momFirestoreId || c.id === b.momId)
-                      const calfColor = b.tagColor || 'أصفر'
-                      const calfBg = calfColor === 'أزرق' ? '#1e88e5' : '#eab308'
-                      const momColor = mom?.tagColor || 'أصفر'
-                      const momBg = momColor === 'أزرق' ? '#1e88e5' : '#eab308'
-
-                      return (
-                        <tr key={b.firestoreId} style={{ opacity: b.calfStatus === 'متوفى' ? 0.55 : 1 }}>
-                          <td style={{ color: 'var(--subtext)', fontSize: 12 }}>{i + 1}</td>
-                          <td>
-                            <strong style={{
-                              border: `2px solid ${calfBg}`,
-                              color: calfBg,
-                              padding: '1px 6px',
-                              borderRadius: 4,
-                              display: 'inline-block',
-                              fontSize: 11,
-                              fontWeight: 800
-                            }}>{calfColor === 'أزرق' ? '🟦' : '🟨'} {b.calfId}</strong>
-                          </td>
-                          <td>
-                            {b.momId && (
-                              <strong style={{
-                                border: `2px solid ${momBg}`,
-                                color: momBg,
-                                padding: '1px 6px',
-                                borderRadius: 4,
-                                display: 'inline-block',
-                                fontSize: 11,
-                                fontWeight: 800
-                              }}>{momColor === 'أزرق' ? '🟦' : '🟨'} {b.momId}</strong>
-                            )}
-                          </td>
-                        <td style={{ fontSize: 12 }}>{b.birthDate}</td>
-                        <td style={{ fontSize: 12, color: 'var(--subtext)' }}>{formatAge(b.birthDate)}</td>
-                        <td>
-                          <span className={`badge ${b.calfGender === 'أنثى' ? 'badge-green' : 'badge-blue'}`}>
-                            {b.calfGender} {b.calfGender === 'أنثى' ? '🐄' : '🐂'}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`badge ${b.birthType === 'طبيعية' ? 'badge-gray' : b.birthType === 'قيصرية' ? 'badge-orange' : 'badge-red'}`}>
-                            {b.birthType}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`badge ${b.calfStatus === 'سليم' || b.calfStatus === 'سليمة' ? 'badge-green' : b.calfStatus === 'رعاية خاصة' || b.calfStatus === 'يحتاج رعاية' ? 'badge-orange' : 'badge-red'}`}>
-                            {b.calfStatus}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`badge ${b.plan === 'للقطيع' || b.plan === 'أضيفت للقطيع' ? 'badge-blue' : b.plan === 'بيع' || b.plan === 'مباع' ? 'badge-red' : 'badge-orange'}`}>
-                            {b.plan}
-                          </span>
-                        </td>
-                        <td onClick={e => e.stopPropagation()}>
-                          <ActionMenu
-                            options={[
-                              { label: 'حذف السجل', icon: '🗑', danger: true, onClick: () => handleDelete(b) }
-                            ]}
-                          />
-                        </td>
-                      </tr>
-                    )})}
-                  </tbody>
-                </table>
-              )
-            }
-          </div>
+                  )})}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ══ Birth Wizard Modal ══ */}
-      {birthOpen && (
+      {birthOpen && createPortal(
         <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) closeBirth() }}>
           <div className="modal modal-lg">
             <div className="modal-header">
@@ -490,7 +388,7 @@ export default function BirthsPage() {
               {bStep === 3 && (
                 <div>
                   <div className="ok-box" style={{ marginBottom: 14 }}>
-                    <div style={{ fontWeight: 800, marginBottom: 8 }}>📋 ملخص الولادة</div>
+                    <div style={{ fontWeight: 800, marginBottom: 8 }}>📋 ملخص ولادة</div>
                     <div className="detail-grid">
                       {[
                         ['الأم', `بقرة رقم ${birthCow?.cowId || cows.find(c => c.firestoreId === bForm.momId)?.id || 'غير معروف'}`],
@@ -519,7 +417,8 @@ export default function BirthsPage() {
 
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root')
       )}
     </div>
   )
